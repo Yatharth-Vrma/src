@@ -348,7 +348,14 @@ const ManageProject = () => {
       completion: <Progress value={project.completion || 0} status={project.status} />,
       action: (
         <MDBox display="flex" justifyContent="center">
-          <CustomButton onClick={() => handleViewDetails(project)}>View Details</CustomButton>
+          <Button
+            variant="gradient"
+            color="info"
+            onClick={() => handleViewDetails(project)}
+            sx={{ mb: 2 }}
+          >
+            View Project
+          </Button>
         </MDBox>
       ),
     })),

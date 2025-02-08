@@ -10,6 +10,8 @@ import {
   Chip,
   Typography,
   Card,
+  CardContent,
+  Box,
 } from "@mui/material";
 import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
@@ -17,38 +19,16 @@ import DataTable from "examples/Tables/DataTable";
 import { db } from "../manage-employee/firebase";
 import { collection, addDoc, getDocs, doc, deleteDoc } from "firebase/firestore";
 
-// Custom styled button component
-import { styled } from "@mui/material/styles";
-
-const CustomButton = styled("button")({
-  padding: "10px 25px",
-  border: "unset",
-  borderRadius: "15px",
-  color: "#212121",
-  zIndex: 1,
-  background: "#e8e8e8",
-  position: "relative",
-  fontWeight: 1000,
-  fontSize: "17px",
-  boxShadow: "4px 8px 19px -3px rgba(0,0,0,0.27)",
-  transition: "all 250ms",
-  overflow: "hidden",
-  "&:hover": {
-    color: "#e8e8e8",
-  },
-});
-
-// The ManageEarning component
 const ManageEarning = () => {
   const [open, setOpen] = useState(false);
   const [earnings, setEarnings] = useState([]);
   const [selectedEarning, setSelectedEarning] = useState(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [clients, setClients] = useState([]);
   const [accounts, setAccounts] = useState([]);
 
-  // Fetch earnings, projects, clients, and accounts from Firestore on component mount
   useEffect(() => {
     const fetchEarnings = async () => {
       const querySnapshot = await getDocs(collection(db, "earnings"));
@@ -76,24 +56,15 @@ const ManageEarning = () => {
     fetchAccounts();
   }, []);
 
-  // Opens the Add/Edit form dialog
-  const handleClickOpen = () => {
-    setOpen(true);
-  };
+  const handleClickOpen = () => setOpen(true);
+  const handleClose = () => setOpen(false);
 
-  // Closes the Add/Edit form dialog
-  const handleClose = () => {
-    setOpen(false);
-  };
-
-  // Handles deletion of an earning
   const handleDelete = async () => {
     await deleteDoc(doc(db, "earnings", selectedEarning.id));
     setEarnings(earnings.filter((earning) => earning.id !== selectedEarning.id));
     setConfirmDeleteOpen(false);
   };
 
-  // Define tableData for the DataTable component
   const tableData = {
     columns: [
       { Header: "Earning ID", accessor: "earningId", align: "left" },
@@ -108,19 +79,21 @@ const ManageEarning = () => {
       earningId: earning.earningId,
       clientName: clients.find((client) => client.id === earning.clientId)?.name || "Unknown",
       amount: `$${earning.amount}`,
-      date: earning.date?.toDate().toLocaleDateString() || "N/A", // Convert Firestore timestamp to date string
+      date: earning.date?.toDate().toLocaleDateString() || "N/A",
       projectId: earning.projectId,
       accountId: earning.accountId,
       action: (
         <MDBox display="flex" justifyContent="center">
-          <CustomButton
+          <Button
+            variant="contained"
+            color="info"
             onClick={() => {
               setSelectedEarning(earning);
-              setConfirmDeleteOpen(true);
+              setViewDetailsOpen(true);
             }}
           >
-            Delete
-          </CustomButton>
+            View Details
+          </Button>
         </MDBox>
       ),
     })),
@@ -177,6 +150,80 @@ const ManageEarning = () => {
         </Grid>
       </Grid>
 
+      {/* View Details Dialog */}
+      <Dialog
+        open={viewDetailsOpen}
+        onClose={() => setViewDetailsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Earning Details</DialogTitle>
+        <DialogContent>
+          {selectedEarning && (
+            <CardContent>
+              <Typography variant="h4" sx={{ fontWeight: "bold", color: "#333", mb: 2 }}>
+                {clients.find((client) => client.id === selectedEarning.clientId)?.name ||
+                  "Unknown Client"}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <MDTypography variant="body2" color="textSecondary">
+                    <strong>Earning ID:</strong> {selectedEarning.earningId}
+                  </MDTypography>
+                  <MDTypography variant="body2" color="textSecondary">
+                    <strong>Amount:</strong> ${selectedEarning.amount}
+                  </MDTypography>
+                  <MDTypography variant="body2" color="textSecondary">
+                    <strong>Date:</strong>{" "}
+                    {selectedEarning.date?.toDate().toLocaleDateString() || "N/A"}
+                  </MDTypography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <MDTypography variant="body2" color="textSecondary">
+                    <strong>Project ID:</strong> {selectedEarning.projectId || "N/A"}
+                  </MDTypography>
+                  <MDTypography variant="body2" color="textSecondary">
+                    <strong>Account ID:</strong> {selectedEarning.accountId || "N/A"}
+                  </MDTypography>
+                  <MDTypography variant="body2" color="textSecondary">
+                    <strong>Client Status:</strong>{" "}
+                    <Chip
+                      label={
+                        clients.find((client) => client.id === selectedEarning.clientId)?.status ||
+                        "Unknown"
+                      }
+                      sx={{
+                        backgroundColor:
+                          clients.find((client) => client.id === selectedEarning.clientId)
+                            ?.status === "Active"
+                            ? "#4CAF50"
+                            : "#F44336",
+                        color: "#fff",
+                        fontSize: "12px",
+                        padding: "4px 8px",
+                        borderRadius: "6px",
+                      }}
+                    />
+                  </MDTypography>
+                </Grid>
+              </Grid>
+            </CardContent>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewDetailsOpen(false)}>Close</Button>
+          <Button
+            onClick={() => {
+              setConfirmDeleteOpen(true);
+              setViewDetailsOpen(false);
+            }}
+            color="error"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Confirm Delete Dialog */}
       <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
         <DialogTitle>Confirm Deletion</DialogTitle>
@@ -189,20 +236,13 @@ const ManageEarning = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Earnings Dialog */}
+      {/* Add Earnings Dialog */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>Add Earnings</DialogTitle>
-        <DialogContent>{/* Add form fields for adding earnings here */}</DialogContent>
+        <DialogContent>{/* Add form fields here */}</DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button
-            onClick={() => {
-              /* Handle add earnings logic */
-            }}
-            color="primary"
-          >
-            Add
-          </Button>
+          <Button color="primary">{/* Add submit handler */}Add</Button>
         </DialogActions>
       </Dialog>
     </MDBox>
