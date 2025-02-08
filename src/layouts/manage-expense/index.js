@@ -311,16 +311,7 @@ const ManageExpenses = () => {
                 options={categories}
                 value={category}
                 onChange={(event, newValue) => setCategory(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Category"
-                    fullWidth
-                    margin="dense"
-                    required
-                    sx={textFieldStyle}
-                  />
-                )}
+                renderInput={(params) => <TextField {...params} label="Category" />}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
                     <Chip key={index} label={option} color="primary" {...getTagProps({ index })} />
@@ -334,10 +325,6 @@ const ManageExpenses = () => {
                 label="Amount"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                fullWidth
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -346,11 +333,7 @@ const ManageExpenses = () => {
                 label="Date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                fullWidth
-                margin="dense"
-                required
                 InputLabelProps={{ shrink: true }}
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12}>
@@ -358,10 +341,6 @@ const ManageExpenses = () => {
                 label="Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                fullWidth
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -369,9 +348,6 @@ const ManageExpenses = () => {
                 label="Project ID"
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
-                fullWidth
-                margin="dense"
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -379,9 +355,6 @@ const ManageExpenses = () => {
                 label="Account ID"
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
-                fullWidth
-                margin="dense"
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12}>

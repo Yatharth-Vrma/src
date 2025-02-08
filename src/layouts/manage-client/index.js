@@ -184,33 +184,6 @@ const ManageClient = () => {
     handleClose();
   };
 
-  const textFieldStyle = {
-    "& .MuiOutlinedInput-root": {
-      borderRadius: "8px",
-      backgroundColor: "#f9fafb",
-      "&:hover fieldset": { borderColor: "#c0c4c9" },
-      "&.Mui-focused fieldset": {
-        borderColor: "#3b4ce2",
-        boxShadow: "0 0 0 2px rgba(59, 76, 226, 0.1)",
-      },
-    },
-    "& .MuiInputLabel-root": {
-      fontSize: "0.875rem",
-      color: "#374151",
-      transform: "translate(14px, 16px) scale(1)",
-      transition: "opacity 0.2s ease-in-out",
-    },
-    // When focused or if text is present, hide the label completely
-    "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-      opacity: 0,
-    },
-    "& .MuiInputBase-input": {
-      fontSize: "0.875rem",
-      padding: "12px 14px",
-      color: "#1f2937",
-    },
-  };
-
   const resetForm = () => {
     setClientId("");
     setName("");
@@ -380,16 +353,13 @@ const ManageClient = () => {
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>{editingClient ? "Edit Client" : "Add Client"}</DialogTitle>
         <DialogContent sx={{ py: 2, padding: "30px" }}>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Client ID"
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -398,9 +368,6 @@ const ManageClient = () => {
                 label="Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -409,9 +376,6 @@ const ManageClient = () => {
                 label="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -420,9 +384,6 @@ const ManageClient = () => {
                 label="Phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12}>
@@ -431,9 +392,6 @@ const ManageClient = () => {
                 label="Address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -443,9 +401,6 @@ const ManageClient = () => {
                 label="Industry"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
               >
                 {industries.map((dept) => (
                   <MenuItem key={dept} value={dept}>
@@ -460,9 +415,6 @@ const ManageClient = () => {
                 label="Contract ID"
                 value={contractId}
                 onChange={(e) => setContractId(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -472,9 +424,6 @@ const ManageClient = () => {
                 label="Contract Start Date"
                 value={contractStartDate}
                 onChange={(e) => setContractStartDate(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -485,8 +434,6 @@ const ManageClient = () => {
                 label="Contract End Date"
                 value={contractEndDate}
                 onChange={(e) => setContractEndDate(e.target.value)}
-                margin="dense"
-                sx={textFieldStyle}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -497,13 +444,8 @@ const ManageClient = () => {
                 label="CAC"
                 value={cac}
                 onChange={(e) => setCac(e.target.value)}
-                margin="dense"
-                sx={textFieldStyle}
                 InputProps={{
-                  startAdornment:
-                    cac.trim() === "" ? (
-                      <InputAdornment position="start">$ CAC</InputAdornment>
-                    ) : null,
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
               />
             </Grid>
@@ -514,13 +456,8 @@ const ManageClient = () => {
                 label="CLTV"
                 value={cltv}
                 onChange={(e) => setCltv(e.target.value)}
-                margin="dense"
-                sx={textFieldStyle}
                 InputProps={{
-                  startAdornment:
-                    cltv.trim() === "" ? (
-                      <InputAdornment position="start">$ CLTV</InputAdornment>
-                    ) : null,
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
               />
             </Grid>
@@ -531,13 +468,8 @@ const ManageClient = () => {
                 label="Revenue Generated"
                 value={revenueGenerated}
                 onChange={(e) => setRevenueGenerated(e.target.value)}
-                margin="dense"
-                sx={textFieldStyle}
                 InputProps={{
-                  startAdornment:
-                    revenueGenerated.trim() === "" ? (
-                      <InputAdornment position="start">$ Revenue Generated</InputAdornment>
-                    ) : null,
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
               />
             </Grid>
@@ -548,13 +480,8 @@ const ManageClient = () => {
                 label="One-Time Revenue"
                 value={oneTimeRevenue}
                 onChange={(e) => setOneTimeRevenue(e.target.value)}
-                margin="dense"
-                sx={textFieldStyle}
                 InputProps={{
-                  startAdornment:
-                    oneTimeRevenue.trim() === "" ? (
-                      <InputAdornment position="start">$ One-Time Revenue</InputAdornment>
-                    ) : null,
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
               />
             </Grid>
@@ -565,13 +492,8 @@ const ManageClient = () => {
                 label="Recurring Revenue"
                 value={recurringRevenue}
                 onChange={(e) => setRecurringRevenue(e.target.value)}
-                margin="dense"
-                sx={textFieldStyle}
                 InputProps={{
-                  startAdornment:
-                    recurringRevenue.trim() === "" ? (
-                      <InputAdornment position="start">$ Recurring Revenue</InputAdornment>
-                    ) : null,
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
               />
             </Grid>
@@ -582,9 +504,6 @@ const ManageClient = () => {
                 label="Status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                margin="dense"
-                required
-                sx={textFieldStyle}
               >
                 {statuses.map((s) => (
                   <MenuItem key={s} value={s}>
@@ -599,8 +518,6 @@ const ManageClient = () => {
                 label="Notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                margin="dense"
-                sx={textFieldStyle}
               />
             </Grid>
           </Grid>
