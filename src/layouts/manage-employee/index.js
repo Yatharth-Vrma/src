@@ -412,8 +412,6 @@ const ManageEmployee = () => {
                 label="Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                margin="dense"
-                required
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -422,8 +420,6 @@ const ManageEmployee = () => {
                 label="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                margin="dense"
-                required
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -432,8 +428,6 @@ const ManageEmployee = () => {
                 label="Phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                margin="dense"
-                required
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -443,7 +437,6 @@ const ManageEmployee = () => {
                 label="Department"
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                margin="dense"
               >
                 {departments.map((dept) => (
                   <MenuItem key={dept} value={dept}>
@@ -458,8 +451,6 @@ const ManageEmployee = () => {
                 label="Designation"
                 value={designation}
                 onChange={(e) => setDesignation(e.target.value)}
-                margin="dense"
-                required
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -469,8 +460,6 @@ const ManageEmployee = () => {
                 label="Joining Date"
                 value={joiningDate}
                 onChange={(e) => setJoiningDate(e.target.value)}
-                margin="dense"
-                required
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -481,7 +470,6 @@ const ManageEmployee = () => {
                 label="Exit Date"
                 value={exitDate}
                 onChange={(e) => setExitDate(e.target.value)}
-                margin="dense"
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -492,8 +480,6 @@ const ManageEmployee = () => {
                 label="Salary"
                 value={salary}
                 onChange={(e) => setSalary(e.target.value)}
-                margin="dense"
-                required
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -503,7 +489,6 @@ const ManageEmployee = () => {
                 label="Status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                margin="dense"
               >
                 {statuses.map((s) => (
                   <MenuItem key={s} value={s}>
@@ -519,8 +504,6 @@ const ManageEmployee = () => {
                 label="Role ID"
                 value={roleId}
                 onChange={(e) => setRoleId(e.target.value)}
-                margin="dense"
-                required
               >
                 {roles.map((role) => (
                   <MenuItem key={role.id} value={role.roleId}>

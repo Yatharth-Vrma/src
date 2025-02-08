@@ -24,6 +24,9 @@ import MDTypography from "components/MDTypography";
 import MDButton from "components/MDButton";
 import Icon from "@mui/material/Icon";
 
+import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import { DatePicker } from "@mui/x-date-pickers";
+
 // Expense categories
 const categories = ["Rent", "Software Licenses", "Utilities", "Salaries", "Marketing", "Other"];
 
@@ -33,11 +36,20 @@ const ManageExpenses = () => {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
   const [expenses, setExpenses] = useState([]);
+  const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [editingExpense, setEditingExpense] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
+  const [dateFilterType, setDateFilterType] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState(null);
+  const [customEndDate, setCustomEndDate] = useState(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
+
   // Form states
-  const [category, setCategory] = useState([]); // Now an array for multiple categories
+  const [category, setCategory] = useState([]);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
@@ -45,7 +57,7 @@ const ManageExpenses = () => {
   const [accountId, setAccountId] = useState("");
   const [recurring, setRecurring] = useState(false);
 
-  // Helper function to format Firestore Timestamps (if applicable)
+  // Helper function to format Firestore Timestamps
   const formatTimestamp = (timestamp) => {
     if (timestamp && typeof timestamp.toDate === "function") {
       return timestamp.toDate().toLocaleDateString();
@@ -53,14 +65,74 @@ const ManageExpenses = () => {
     return timestamp;
   };
 
-  // Fetch expenses from Firestore on mount
+  // Fetch expenses from Firestore
   useEffect(() => {
     const fetchExpenses = async () => {
       const querySnapshot = await getDocs(collection(db, "expenses"));
-      setExpenses(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      const expensesData = querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        // Ensure category is an array
+        const category = Array.isArray(data.category)
+          ? data.category
+          : [data.category].filter((c) => c);
+        return { id: doc.id, ...data, category };
+      });
+      setExpenses(expensesData);
+      setFilteredExpenses(expensesData);
     };
     fetchExpenses();
   }, []);
+
+  // Add this useEffect for date filtering
+  useEffect(() => {
+    const filterByDate = (expenseDate) => {
+      const expenseDateObj = expenseDate?.toDate ? expenseDate.toDate() : new Date(expenseDate);
+      const now = new Date();
+
+      switch (dateFilterType) {
+        case "today":
+          return expenseDateObj.toDateString() === now.toDateString();
+        case "week":
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          return expenseDateObj >= startOfWeek;
+        case "month":
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          return expenseDateObj >= startOfMonth;
+        case "3months":
+          const threeMonthsAgo = new Date(now.setMonth(now.getMonth() - 3));
+          return expenseDateObj >= threeMonthsAgo;
+        case "year":
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          return expenseDateObj >= startOfYear;
+        case "custom":
+          if (!customStartDate || !customEndDate) return true;
+          return expenseDateObj >= customStartDate && expenseDateObj <= customEndDate;
+        default:
+          return true;
+      }
+    };
+
+    const filtered = expenses.filter(
+      (expense) =>
+        filterByDate(expense.date) &&
+        (searchTerm === "" ||
+          expense.category.some((cat) => cat.toLowerCase().includes(searchTerm.toLowerCase())))
+    );
+
+    setFilteredExpenses(filtered);
+  }, [dateFilterType, customStartDate, customEndDate, searchTerm, expenses]);
+
+  // Handle search by category
+  useEffect(() => {
+    if (searchTerm === "") {
+      setFilteredExpenses(expenses); // Show all expenses if search term is empty
+    } else {
+      const filtered = expenses.filter((expense) =>
+        expense.category.some((cat) => cat.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      setFilteredExpenses(filtered);
+    }
+  }, [searchTerm, expenses]);
 
   // Open Add/Edit dialog and reset form
   const handleClickOpen = () => {
@@ -77,7 +149,11 @@ const ManageExpenses = () => {
   // Populate form fields for editing an expense
   const handleEdit = (expense) => {
     setEditingExpense(expense);
-    setCategory(expense.category || []);
+    // Convert to array if necessary
+    const categoryArray = Array.isArray(expense.category)
+      ? expense.category
+      : [expense.category].filter((c) => c);
+    setCategory(categoryArray);
     setAmount(expense.amount);
     setDate(
       expense.date && typeof expense.date.toDate === "function"
@@ -104,8 +180,8 @@ const ManageExpenses = () => {
   // Confirm update or add expense in Firestore
   const confirmUpdate = async () => {
     const newExpense = {
-      expenseId: editingExpense ? editingExpense.expenseId : generateExpenseId(), // Auto-generate ID
-      category,
+      expenseId: editingExpense ? editingExpense.expenseId : generateExpenseId(),
+      category: Array.isArray(category) ? category : [category], // Ensure array
       amount: Number(amount),
       date: new Date(date),
       description,
@@ -147,30 +223,6 @@ const ManageExpenses = () => {
     setEditingExpense(null);
   };
 
-  // Custom textField styling
-  const textFieldStyle = {
-    "& .MuiOutlinedInput-root": {
-      borderRadius: "8px",
-      backgroundColor: "#f9fafb",
-      "&:hover fieldset": { borderColor: "#c0c4c9" },
-      "&.Mui-focused fieldset": {
-        borderColor: "#3b4ce2",
-        boxShadow: "0 0 0 2px rgba(59, 76, 226, 0.1)",
-      },
-    },
-    "& .MuiInputLabel-root": {
-      fontSize: "0.875rem",
-      color: "#374151",
-      transform: "translate(14px, 16px) scale(1)",
-      "&.Mui-focused": { color: "#3b4ce2" },
-    },
-    "& .MuiInputBase-input": {
-      fontSize: "0.875rem",
-      padding: "12px 14px",
-      color: "#1f2937",
-    },
-  };
-
   return (
     <MDBox
       p={3}
@@ -203,15 +255,104 @@ const ManageExpenses = () => {
                 Expense Management
               </MDTypography>
             </MDBox>
-            <MDBox pt={3} pb={2} px={2}>
-              <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
-                Add expenses
-              </Button>
+            <MDBox
+              pt={3}
+              pb={2}
+              px={2}
+              display="flex"
+              alignItems="center"
+              gap={2}
+              justifyContent="space-between"
+            >
+              <Box display="flex" gap={2}>
+                <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
+                  Add expenses
+                </Button>
+                <TextField
+                  label="Search by Category"
+                  variant="outlined"
+                  size="small"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{
+                    maxWidth: 300,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "8px",
+                      backgroundColor: "#fff",
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* New Date Filter Section */}
+              <Box display="flex" gap={2} alignItems="center">
+                <FormControl
+                  variant="outlined"
+                  size={"small"} // "small" or "medium"
+                  sx={{
+                    // Use the width prop here
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "1rem",
+                      padding: "12px 35px",
+                    },
+                    "& .MuiInputLabel-root": {
+                      fontSize: "0.9rem",
+                    },
+                  }}
+                >
+                  <InputLabel>Date Filter</InputLabel>
+                  <Select
+                    value={dateFilterType}
+                    onChange={(e) => setDateFilterType(e.target.value)}
+                    label="Date Filter"
+                  >
+                    <MenuItem value="all">All Dates</MenuItem>
+                    <MenuItem value="today">Today</MenuItem>
+                    <MenuItem value="week">This Week</MenuItem>
+                    <MenuItem value="month">This Month</MenuItem>
+                    <MenuItem value="3months">Last 3 Months</MenuItem>
+                    <MenuItem value="year">This Year</MenuItem>
+                    <MenuItem value="custom">Custom Range</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {dateFilterType === "custom" && (
+                  <Button
+                    variant="outlined"
+                    onClick={() => setDatePickerOpen(true)}
+                    sx={{ height: 40 }}
+                  >
+                    Choose Dates
+                  </Button>
+                )}
+              </Box>
             </MDBox>
+
+            <Dialog open={datePickerOpen} onClose={() => setDatePickerOpen(false)}>
+              <DialogTitle>Select Date Range</DialogTitle>
+              <DialogContent sx={{ p: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+                <DatePicker
+                  label="Start Date"
+                  value={customStartDate}
+                  onChange={(newValue) => setCustomStartDate(newValue)}
+                  renderInput={(params) => <TextField {...params} />}
+                />
+                <DatePicker
+                  label="End Date"
+                  value={customEndDate}
+                  onChange={(newValue) => setCustomEndDate(newValue)}
+                  renderInput={(params) => <TextField {...params} />}
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDatePickerOpen(false)}>Cancel</Button>
+                <Button onClick={() => setDatePickerOpen(false)}>Apply</Button>
+              </DialogActions>
+            </Dialog>
 
             {/* Expense Cards Grid */}
             <Grid container spacing={3} sx={{ padding: "16px" }}>
-              {expenses.map((expense) => (
+              {filteredExpenses.map((expense) => (
                 <Grid item xs={12} md={12} key={expense.id}>
                   <Card
                     sx={{
@@ -228,7 +369,6 @@ const ManageExpenses = () => {
                   >
                     <CardContent>
                       <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-                        {/* Modify this part to check if category is an array */}
                         {Array.isArray(expense.category) &&
                           expense.category.map((cat, index) => (
                             <Chip key={index} label={cat} color="primary" />
@@ -244,7 +384,10 @@ const ManageExpenses = () => {
                             <strong>Amount:</strong> ${expense.amount}
                           </MDTypography>
                           <MDTypography variant="body2" color="textSecondary">
-                            <strong>Date:</strong> {formatTimestamp(expense.date)}
+                            <strong>Date:</strong>{" "}
+                            {expense.date?.toDate
+                              ? expense.date.toDate().toLocaleDateString()
+                              : new Date(expense.date).toLocaleDateString()}
                           </MDTypography>
                         </Grid>
 
@@ -311,16 +454,7 @@ const ManageExpenses = () => {
                 options={categories}
                 value={category}
                 onChange={(event, newValue) => setCategory(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Category"
-                    fullWidth
-                    margin="dense"
-                    required
-                    sx={textFieldStyle}
-                  />
-                )}
+                renderInput={(params) => <TextField {...params} label="Category" />}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
                     <Chip key={index} label={option} color="primary" {...getTagProps({ index })} />
@@ -334,10 +468,6 @@ const ManageExpenses = () => {
                 label="Amount"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                fullWidth
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -346,11 +476,7 @@ const ManageExpenses = () => {
                 label="Date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                fullWidth
-                margin="dense"
-                required
                 InputLabelProps={{ shrink: true }}
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12}>
@@ -358,10 +484,6 @@ const ManageExpenses = () => {
                 label="Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                fullWidth
-                margin="dense"
-                required
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -369,9 +491,6 @@ const ManageExpenses = () => {
                 label="Project ID"
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
-                fullWidth
-                margin="dense"
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -379,9 +498,6 @@ const ManageExpenses = () => {
                 label="Account ID"
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
-                fullWidth
-                margin="dense"
-                sx={textFieldStyle}
               />
             </Grid>
             <Grid item xs={12}>
