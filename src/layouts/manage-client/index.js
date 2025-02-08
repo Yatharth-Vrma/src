@@ -140,10 +140,10 @@ const ManageClient = () => {
   const handleSubmit = async () => {
     setConfirmUpdateOpen(true);
   };
-
+  
   const confirmUpdate = async () => {
     const newClient = {
-      clientId: generateClientId(name),
+      clientId: editingClient ? editingClient.clientId : generateClientId(name), // Only generate new ID if adding a new client
       name,
       email,
       phone,
@@ -167,7 +167,7 @@ const ManageClient = () => {
       createdAt: editingClient ? editingClient.createdAt : new Date(),
       updatedAt: new Date(),
     };
-
+  
     if (editingClient) {
       await updateDoc(doc(db, "clients", editingClient.id), newClient);
       setClients(
@@ -179,11 +179,11 @@ const ManageClient = () => {
       const docRef = await addDoc(collection(db, "clients"), newClient);
       setClients([...clients, { id: docRef.id, ...newClient }]);
     }
-
+  
     setConfirmUpdateOpen(false);
     handleClose();
   };
-
+  
   const textFieldStyle = {
     "& .MuiOutlinedInput-root": {
       borderRadius: "8px",
