@@ -33,11 +33,15 @@ const ManageExpenses = () => {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
   const [expenses, setExpenses] = useState([]);
+  const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [editingExpense, setEditingExpense] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
+
   // Form states
-  const [category, setCategory] = useState([]); // Now an array for multiple categories
+  const [category, setCategory] = useState([]);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
@@ -45,7 +49,7 @@ const ManageExpenses = () => {
   const [accountId, setAccountId] = useState("");
   const [recurring, setRecurring] = useState(false);
 
-  // Helper function to format Firestore Timestamps (if applicable)
+  // Helper function to format Firestore Timestamps
   const formatTimestamp = (timestamp) => {
     if (timestamp && typeof timestamp.toDate === "function") {
       return timestamp.toDate().toLocaleDateString();
@@ -53,14 +57,35 @@ const ManageExpenses = () => {
     return timestamp;
   };
 
-  // Fetch expenses from Firestore on mount
+  // Fetch expenses from Firestore
   useEffect(() => {
     const fetchExpenses = async () => {
       const querySnapshot = await getDocs(collection(db, "expenses"));
-      setExpenses(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      const expensesData = querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        // Ensure category is an array
+        const category = Array.isArray(data.category)
+          ? data.category
+          : [data.category].filter((c) => c);
+        return { id: doc.id, ...data, category };
+      });
+      setExpenses(expensesData);
+      setFilteredExpenses(expensesData);
     };
     fetchExpenses();
   }, []);
+
+  // Handle search by category
+  useEffect(() => {
+    if (searchTerm === "") {
+      setFilteredExpenses(expenses); // Show all expenses if search term is empty
+    } else {
+      const filtered = expenses.filter((expense) =>
+        expense.category.some((cat) => cat.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      setFilteredExpenses(filtered);
+    }
+  }, [searchTerm, expenses]);
 
   // Open Add/Edit dialog and reset form
   const handleClickOpen = () => {
@@ -77,7 +102,11 @@ const ManageExpenses = () => {
   // Populate form fields for editing an expense
   const handleEdit = (expense) => {
     setEditingExpense(expense);
-    setCategory(expense.category || []);
+    // Convert to array if necessary
+    const categoryArray = Array.isArray(expense.category)
+      ? expense.category
+      : [expense.category].filter((c) => c);
+    setCategory(categoryArray);
     setAmount(expense.amount);
     setDate(
       expense.date && typeof expense.date.toDate === "function"
@@ -104,8 +133,8 @@ const ManageExpenses = () => {
   // Confirm update or add expense in Firestore
   const confirmUpdate = async () => {
     const newExpense = {
-      expenseId: editingExpense ? editingExpense.expenseId : generateExpenseId(), // Auto-generate ID
-      category,
+      expenseId: editingExpense ? editingExpense.expenseId : generateExpenseId(),
+      category: Array.isArray(category) ? category : [category], // Ensure array
       amount: Number(amount),
       date: new Date(date),
       description,
@@ -147,30 +176,6 @@ const ManageExpenses = () => {
     setEditingExpense(null);
   };
 
-  // Custom textField styling
-  const textFieldStyle = {
-    "& .MuiOutlinedInput-root": {
-      borderRadius: "8px",
-      backgroundColor: "#f9fafb",
-      "&:hover fieldset": { borderColor: "#c0c4c9" },
-      "&.Mui-focused fieldset": {
-        borderColor: "#3b4ce2",
-        boxShadow: "0 0 0 2px rgba(59, 76, 226, 0.1)",
-      },
-    },
-    "& .MuiInputLabel-root": {
-      fontSize: "0.875rem",
-      color: "#374151",
-      transform: "translate(14px, 16px) scale(1)",
-      "&.Mui-focused": { color: "#3b4ce2" },
-    },
-    "& .MuiInputBase-input": {
-      fontSize: "0.875rem",
-      padding: "12px 14px",
-      color: "#1f2937",
-    },
-  };
-
   return (
     <MDBox
       p={3}
@@ -203,15 +208,30 @@ const ManageExpenses = () => {
                 Expense Management
               </MDTypography>
             </MDBox>
-            <MDBox pt={3} pb={2} px={2}>
+            <MDBox pt={3} pb={2} px={2} display="flex" alignItems="center" gap={2}>
               <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
                 Add expenses
               </Button>
+              <TextField
+                label="Search by Category"
+                variant="outlined"
+                size="small"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{
+                  flexGrow: 1,
+                  maxWidth: 300,
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "8px",
+                    backgroundColor: "#fff",
+                  },
+                }}
+              />
             </MDBox>
 
             {/* Expense Cards Grid */}
             <Grid container spacing={3} sx={{ padding: "16px" }}>
-              {expenses.map((expense) => (
+              {filteredExpenses.map((expense) => (
                 <Grid item xs={12} md={12} key={expense.id}>
                   <Card
                     sx={{
@@ -228,7 +248,6 @@ const ManageExpenses = () => {
                   >
                     <CardContent>
                       <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-                        {/* Modify this part to check if category is an array */}
                         {Array.isArray(expense.category) &&
                           expense.category.map((cat, index) => (
                             <Chip key={index} label={cat} color="primary" />
