@@ -24,6 +24,9 @@ import MDTypography from "components/MDTypography";
 import MDButton from "components/MDButton";
 import Icon from "@mui/material/Icon";
 
+import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import { DatePicker } from "@mui/x-date-pickers";
+
 // Expense categories
 const categories = ["Rent", "Software Licenses", "Utilities", "Salaries", "Marketing", "Other"];
 
@@ -36,6 +39,11 @@ const ManageExpenses = () => {
   const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [editingExpense, setEditingExpense] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+
+  const [dateFilterType, setDateFilterType] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState(null);
+  const [customEndDate, setCustomEndDate] = useState(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,6 +82,45 @@ const ManageExpenses = () => {
     };
     fetchExpenses();
   }, []);
+
+  // Add this useEffect for date filtering
+  useEffect(() => {
+    const filterByDate = (expenseDate) => {
+      const expenseDateObj = expenseDate?.toDate ? expenseDate.toDate() : new Date(expenseDate);
+      const now = new Date();
+
+      switch (dateFilterType) {
+        case "today":
+          return expenseDateObj.toDateString() === now.toDateString();
+        case "week":
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          return expenseDateObj >= startOfWeek;
+        case "month":
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          return expenseDateObj >= startOfMonth;
+        case "3months":
+          const threeMonthsAgo = new Date(now.setMonth(now.getMonth() - 3));
+          return expenseDateObj >= threeMonthsAgo;
+        case "year":
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          return expenseDateObj >= startOfYear;
+        case "custom":
+          if (!customStartDate || !customEndDate) return true;
+          return expenseDateObj >= customStartDate && expenseDateObj <= customEndDate;
+        default:
+          return true;
+      }
+    };
+
+    const filtered = expenses.filter(
+      (expense) =>
+        filterByDate(expense.date) &&
+        (searchTerm === "" ||
+          expense.category.some((cat) => cat.toLowerCase().includes(searchTerm.toLowerCase())))
+    );
+
+    setFilteredExpenses(filtered);
+  }, [dateFilterType, customStartDate, customEndDate, searchTerm, expenses]);
 
   // Handle search by category
   useEffect(() => {
@@ -208,26 +255,100 @@ const ManageExpenses = () => {
                 Expense Management
               </MDTypography>
             </MDBox>
-            <MDBox pt={3} pb={2} px={2} display="flex" alignItems="center" gap={2}>
-              <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
-                Add expenses
-              </Button>
-              <TextField
-                label="Search by Category"
-                variant="outlined"
-                size="small"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                sx={{
-                  flexGrow: 1,
-                  maxWidth: 300,
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "8px",
-                    backgroundColor: "#fff",
-                  },
-                }}
-              />
+            <MDBox
+              pt={3}
+              pb={2}
+              px={2}
+              display="flex"
+              alignItems="center"
+              gap={2}
+              justifyContent="space-between"
+            >
+              <Box display="flex" gap={2}>
+                <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
+                  Add expenses
+                </Button>
+                <TextField
+                  label="Search by Category"
+                  variant="outlined"
+                  size="small"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{
+                    maxWidth: 300,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "8px",
+                      backgroundColor: "#fff",
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* New Date Filter Section */}
+              <Box display="flex" gap={2} alignItems="center">
+                <FormControl
+                  variant="outlined"
+                  size={"small"} // "small" or "medium"
+                  sx={{
+                    // Use the width prop here
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "1rem",
+                      padding: "12px 35px",
+                    },
+                    "& .MuiInputLabel-root": {
+                      fontSize: "0.9rem",
+                    },
+                  }}
+                >
+                  <InputLabel>Date Filter</InputLabel>
+                  <Select
+                    value={dateFilterType}
+                    onChange={(e) => setDateFilterType(e.target.value)}
+                    label="Date Filter"
+                  >
+                    <MenuItem value="all">All Dates</MenuItem>
+                    <MenuItem value="today">Today</MenuItem>
+                    <MenuItem value="week">This Week</MenuItem>
+                    <MenuItem value="month">This Month</MenuItem>
+                    <MenuItem value="3months">Last 3 Months</MenuItem>
+                    <MenuItem value="year">This Year</MenuItem>
+                    <MenuItem value="custom">Custom Range</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {dateFilterType === "custom" && (
+                  <Button
+                    variant="outlined"
+                    onClick={() => setDatePickerOpen(true)}
+                    sx={{ height: 40 }}
+                  >
+                    Choose Dates
+                  </Button>
+                )}
+              </Box>
             </MDBox>
+
+            <Dialog open={datePickerOpen} onClose={() => setDatePickerOpen(false)}>
+              <DialogTitle>Select Date Range</DialogTitle>
+              <DialogContent sx={{ p: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+                <DatePicker
+                  label="Start Date"
+                  value={customStartDate}
+                  onChange={(newValue) => setCustomStartDate(newValue)}
+                  renderInput={(params) => <TextField {...params} />}
+                />
+                <DatePicker
+                  label="End Date"
+                  value={customEndDate}
+                  onChange={(newValue) => setCustomEndDate(newValue)}
+                  renderInput={(params) => <TextField {...params} />}
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDatePickerOpen(false)}>Cancel</Button>
+                <Button onClick={() => setDatePickerOpen(false)}>Apply</Button>
+              </DialogActions>
+            </Dialog>
 
             {/* Expense Cards Grid */}
             <Grid container spacing={3} sx={{ padding: "16px" }}>
@@ -263,7 +384,10 @@ const ManageExpenses = () => {
                             <strong>Amount:</strong> ${expense.amount}
                           </MDTypography>
                           <MDTypography variant="body2" color="textSecondary">
-                            <strong>Date:</strong> {formatTimestamp(expense.date)}
+                            <strong>Date:</strong>{" "}
+                            {expense.date?.toDate
+                              ? expense.date.toDate().toLocaleDateString()
+                              : new Date(expense.date).toLocaleDateString()}
                           </MDTypography>
                         </Grid>
 
