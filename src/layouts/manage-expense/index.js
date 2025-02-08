@@ -32,11 +32,9 @@ const ManageExpenses = () => {
   const [open, setOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
-  const [viewDetailsOpen, setViewDetailsOpen] = useState(false); // New state for view details dialog
   const [expenses, setExpenses] = useState([]);
   const [editingExpense, setEditingExpense] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
-  const [selectedExpense, setSelectedExpense] = useState(null); // New state for selected expense details
 
   // Form states
   const [category, setCategory] = useState([]); // Now an array for multiple categories
@@ -149,10 +147,28 @@ const ManageExpenses = () => {
     setEditingExpense(null);
   };
 
-  // Open View Details dialog
-  const handleViewDetails = (expense) => {
-    setSelectedExpense(expense);
-    setViewDetailsOpen(true);
+  // Custom textField styling
+  const textFieldStyle = {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: "8px",
+      backgroundColor: "#f9fafb",
+      "&:hover fieldset": { borderColor: "#c0c4c9" },
+      "&.Mui-focused fieldset": {
+        borderColor: "#3b4ce2",
+        boxShadow: "0 0 0 2px rgba(59, 76, 226, 0.1)",
+      },
+    },
+    "& .MuiInputLabel-root": {
+      fontSize: "0.875rem",
+      color: "#374151",
+      transform: "translate(14px, 16px) scale(1)",
+      "&.Mui-focused": { color: "#3b4ce2" },
+    },
+    "& .MuiInputBase-input": {
+      fontSize: "0.875rem",
+      padding: "12px 14px",
+      color: "#1f2937",
+    },
   };
 
   return (
@@ -212,6 +228,7 @@ const ManageExpenses = () => {
                   >
                     <CardContent>
                       <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+                        {/* Modify this part to check if category is an array */}
                         {Array.isArray(expense.category) &&
                           expense.category.map((cat, index) => (
                             <Chip key={index} label={cat} color="primary" />
@@ -265,18 +282,14 @@ const ManageExpenses = () => {
                       </MDButton>
                       <MDButton
                         variant="text"
-                        onClick={() => handleViewDetails(expense)}
-                        sx={{
-                          ml: 1,
-                          background:
-                            "linear-gradient(100% 100% at 100% 0, #5adaff 0, #5468ff 100%)",
-                          color: "#000",
-                          fontWeight: "bold",
-                          borderRadius: "8px",
-                          padding: "12px 24px",
+                        color="error"
+                        onClick={() => {
+                          setDeleteId(expense.id);
+                          setConfirmDeleteOpen(true);
                         }}
+                        sx={{ ml: 1, padding: "12px 24px" }}
                       >
-                        <Icon fontSize="medium">visibility</Icon>&nbsp;View Details
+                        <Icon fontSize="medium">delete</Icon>&nbsp;Delete
                       </MDButton>
                     </CardActions>
                   </Card>
@@ -362,72 +375,6 @@ const ManageExpenses = () => {
           <Button onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSubmit} color="primary">
             Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* View Details Dialog */}
-      <Dialog
-        open={viewDetailsOpen}
-        onClose={() => setViewDetailsOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Expense Details</DialogTitle>
-        <DialogContent>
-          {selectedExpense && (
-            <CardContent>
-              <Typography variant="h4" sx={{ fontWeight: "bold", color: "#333", mb: 2 }}>
-                {selectedExpense.description}
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <MDTypography variant="body2" color="textSecondary">
-                    <strong>Expense ID:</strong> {selectedExpense.expenseId}
-                  </MDTypography>
-                  <MDTypography variant="body2" color="textSecondary">
-                    <strong>Amount:</strong> ${selectedExpense.amount}
-                  </MDTypography>
-                  <MDTypography variant="body2" color="textSecondary">
-                    <strong>Date:</strong> {formatTimestamp(selectedExpense.date)}
-                  </MDTypography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <MDTypography variant="body2" color="textSecondary">
-                    <strong>Project ID:</strong> {selectedExpense.projectId || "N/A"}
-                  </MDTypography>
-                  <MDTypography variant="body2" color="textSecondary">
-                    <strong>Account ID:</strong> {selectedExpense.accountId || "N/A"}
-                  </MDTypography>
-                  <MDTypography variant="body2" color="textSecondary">
-                    <strong>Recurring:</strong>{" "}
-                    <Chip
-                      label={selectedExpense.recurring ? "Yes" : "No"}
-                      sx={{
-                        backgroundColor: selectedExpense.recurring ? "#4CAF50" : "#F44336",
-                        color: "#fff",
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        borderRadius: "6px",
-                      }}
-                    />
-                  </MDTypography>
-                </Grid>
-              </Grid>
-            </CardContent>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setViewDetailsOpen(false)}>Close</Button>
-          <Button
-            onClick={() => {
-              setDeleteId(selectedExpense.id);
-              setConfirmDeleteOpen(true);
-              setViewDetailsOpen(false);
-            }}
-            color="error"
-          >
-            Delete
           </Button>
         </DialogActions>
       </Dialog>
