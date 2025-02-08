@@ -19,7 +19,7 @@ import MDTypography from "components/MDTypography";
 import MDBadge from "components/MDBadge";
 import DataTable from "examples/Tables/DataTable";
 import { db } from "./firebase";
-import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc } from "firebase/firestore";
 
 const departments = ["HR", "Engineering", "Marketing", "Sales", "Finance"];
 const statuses = ["Active", "On Leave", "Resigned", "Terminated"];
@@ -71,12 +71,10 @@ const generateEmployeeId = (name) => {
 const ManageEmployee = () => {
   const [open, setOpen] = useState(false);
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
   const [roles, setRoles] = useState([]);
 
   // Form states
@@ -196,13 +194,6 @@ const ManageEmployee = () => {
     setRoleId(employee.roleId);
     setViewDetailsOpen(false);
     setOpen(true);
-  };
-
-  const handleDelete = async () => {
-    await deleteDoc(doc(db, "employees", deleteId));
-    setEmployees(employees.filter((emp) => emp.id !== deleteId));
-    setConfirmDeleteOpen(false);
-    setViewDetailsOpen(false);
   };
 
   const tableData = {
@@ -400,15 +391,6 @@ const ManageEmployee = () => {
           <Button onClick={handleEdit} color="primary">
             Edit
           </Button>
-          <Button
-            onClick={() => {
-              setDeleteId(selectedEmployee.id);
-              setConfirmDeleteOpen(true);
-            }}
-            color="error"
-          >
-            Delete
-          </Button>
         </DialogActions>
       </Dialog>
 
@@ -522,17 +504,6 @@ const ManageEmployee = () => {
           <Button onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSubmit} color="primary">
             Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirmation Dialogs */}
-      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
-        <DialogTitle>Confirm Delete Employee?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error">
-            Delete
           </Button>
         </DialogActions>
       </Dialog>
