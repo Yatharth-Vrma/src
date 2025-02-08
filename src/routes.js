@@ -4,6 +4,7 @@ import ManageEmployee from "layouts/manage-employee"; // Ensure this path is cor
 import ManageProjects from "./layouts/manage-projects";
 import ManageClient from "./layouts/manage-client";
 import ManageRoles from "layouts/manage-roles";
+import ManageEarnings from "layouts/manage-earning";
 import ManageAccount from "layouts/manage-accounts";
 import ManageExpenses from "./layouts/manage-expense";
 import Icon from "@mui/material/Icon";
@@ -56,6 +57,13 @@ const routes = [
         icon: <Icon fontSize="small">assignment</Icon>,
         route: "/manage/Roles",
         component: <ManageRoles />,
+      },
+      {
+        name: "Manage Earnings",
+        key: "manage-earnings",
+        icon: <Icon fontSize="small">receipt</Icon>,
+        route: "/manage/Earnings",
+        component: <ManageEarnings />,
       },
     ],
   },
