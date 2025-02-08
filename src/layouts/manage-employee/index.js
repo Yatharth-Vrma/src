@@ -219,7 +219,14 @@ const ManageEmployee = () => {
       ),
       actions: (
         <MDBox display="flex" justifyContent="center">
-          <CustomButton onClick={() => handleViewDetails(employee)}>View Details</CustomButton>
+          <Button
+            variant="gradient"
+            color="info"
+            onClick={() => handleViewDetails(employee)}
+            sx={{ mb: 2 }}
+          >
+            View Employee
+          </Button>
         </MDBox>
       ),
     })),
@@ -398,107 +405,131 @@ const ManageEmployee = () => {
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>{editingEmployee ? "Edit Employee" : "Add Employee"}</DialogTitle>
         <DialogContent>
-          <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-            margin="dense"
-            required
-          />
-          <TextField
-            label="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            fullWidth
-            margin="dense"
-            required
-          />
-          <TextField
-            label="Phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            fullWidth
-            margin="dense"
-            required
-          />
-          <TextField
-            select
-            label="Department"
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            fullWidth
-            margin="dense"
-          >
-            {departments.map((dept) => (
-              <MenuItem key={dept} value={dept}>
-                {dept}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Designation"
-            value={designation}
-            onChange={(e) => setDesignation(e.target.value)}
-            fullWidth
-            margin="dense"
-            required
-          />
-          <TextField
-            type="date"
-            label="Joining Date"
-            value={joiningDate}
-            onChange={(e) => setJoiningDate(e.target.value)}
-            fullWidth
-            margin="dense"
-            required
-          />
-          <TextField
-            type="date"
-            label="Exit Date"
-            value={exitDate}
-            onChange={(e) => setExitDate(e.target.value)}
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            type="number"
-            label="Salary"
-            value={salary}
-            onChange={(e) => setSalary(e.target.value)}
-            fullWidth
-            margin="dense"
-            required
-          />
-          <TextField
-            select
-            label="Status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            fullWidth
-            margin="dense"
-          >
-            {statuses.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Role ID"
-            value={roleId}
-            onChange={(e) => setRoleId(e.target.value)}
-            fullWidth
-            margin="dense"
-            required
-          >
-            {roles.map((role) => (
-              <MenuItem key={role.id} value={role.roleId}>
-                {role.roleId}
-              </MenuItem>
-            ))}
-          </TextField>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                margin="dense"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                margin="dense"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                margin="dense"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                fullWidth
+                label="Department"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                margin="dense"
+              >
+                {departments.map((dept) => (
+                  <MenuItem key={dept} value={dept}>
+                    {dept}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Designation"
+                value={designation}
+                onChange={(e) => setDesignation(e.target.value)}
+                margin="dense"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Joining Date"
+                value={joiningDate}
+                onChange={(e) => setJoiningDate(e.target.value)}
+                margin="dense"
+                required
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Exit Date"
+                value={exitDate}
+                onChange={(e) => setExitDate(e.target.value)}
+                margin="dense"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Salary"
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                margin="dense"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                fullWidth
+                label="Status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                margin="dense"
+              >
+                {statuses.map((s) => (
+                  <MenuItem key={s} value={s}>
+                    {s}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                select
+                fullWidth
+                label="Role ID"
+                value={roleId}
+                onChange={(e) => setRoleId(e.target.value)}
+                margin="dense"
+                required
+              >
+                {roles.map((role) => (
+                  <MenuItem key={role.id} value={role.roleId}>
+                    {role.roleId}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
