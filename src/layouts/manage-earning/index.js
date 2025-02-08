@@ -106,17 +106,21 @@ const ManageEarning = () => {
     ],
     rows: earnings.map((earning) => ({
       earningId: earning.earningId,
-      clientName: clients.find(client => client.id === earning.clientId)?.name || "Unknown",
+      clientName: clients.find((client) => client.id === earning.clientId)?.name || "Unknown",
       amount: `$${earning.amount}`,
       date: earning.date?.toDate().toLocaleDateString() || "N/A", // Convert Firestore timestamp to date string
       projectId: earning.projectId,
       accountId: earning.accountId,
       action: (
         <MDBox display="flex" justifyContent="center">
-          <CustomButton onClick={() => {
-            setSelectedEarning(earning);
-            setConfirmDeleteOpen(true);
-          }}>Delete</CustomButton>
+          <CustomButton
+            onClick={() => {
+              setSelectedEarning(earning);
+              setConfirmDeleteOpen(true);
+            }}
+          >
+            Delete
+          </CustomButton>
         </MDBox>
       ),
     })),
@@ -188,12 +192,15 @@ const ManageEarning = () => {
       {/* Add/Edit Earnings Dialog */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>Add Earnings</DialogTitle>
-        <DialogContent>
-          {/* Add form fields for adding earnings here */}
-        </DialogContent>
+        <DialogContent>{/* Add form fields for adding earnings here */}</DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={() => { /* Handle add earnings logic */ }} color="primary">
+          <Button
+            onClick={() => {
+              /* Handle add earnings logic */
+            }}
+            color="primary"
+          >
             Add
           </Button>
         </DialogActions>
