@@ -19,7 +19,7 @@ import {
   Box,
 } from "@mui/material";
 import { db } from "../manage-employee/firebase";
-import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc } from "firebase/firestore";
 import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 import MDButton from "components/MDButton";
@@ -57,19 +57,19 @@ const generateContractId = () => `CON-${generateRandomNumber()}`;
 
 const ManageClient = () => {
   const [open, setOpen] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
   const [editingClient, setEditingClient] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
 
   // Form states
+  const [clientId, setClientId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [industry, setIndustry] = useState("");
+  const [contractId, setContractId] = useState("");
   const [contractStartDate, setContractStartDate] = useState("");
   const [contractEndDate, setContractEndDate] = useState("");
   const [cac, setCac] = useState("");
@@ -109,11 +109,13 @@ const ManageClient = () => {
 
   const handleEdit = (client) => {
     setEditingClient(client);
+    setClientId(client.clientId || "");
     setName(client.name || "");
     setEmail(client.email || "");
     setPhone(client.phone || "");
     setAddress(client.address || "");
     setIndustry(client.industry || "");
+    setContractId(client.contractId || "");
     setContractStartDate(
       client.contractStartDate && typeof client.contractStartDate.toDate === "function"
         ? client.contractStartDate.toDate().toISOString().substring(0, 10)
@@ -140,17 +142,14 @@ const ManageClient = () => {
   };
 
   const confirmUpdate = async () => {
-    const clientId = generateClientId(name);
-    const contractId = generateContractId();
-
     const newClient = {
-      clientId,
+      clientId: generateClientId(name),
       name,
       email,
       phone,
       address,
       industry,
-      contractId,
+      contractId: generateContractId(),
       contractStartDate,
       contractEndDate,
       Metrics: {
@@ -185,12 +184,6 @@ const ManageClient = () => {
     handleClose();
   };
 
-  const handleDelete = async () => {
-    await deleteDoc(doc(db, "clients", deleteId));
-    setClients(clients.filter((client) => client.id !== deleteId));
-    setConfirmDeleteOpen(false);
-  };
-
   const textFieldStyle = {
     "& .MuiOutlinedInput-root": {
       borderRadius: "8px",
@@ -205,7 +198,11 @@ const ManageClient = () => {
       fontSize: "0.875rem",
       color: "#374151",
       transform: "translate(14px, 16px) scale(1)",
-      "&.Mui-focused": { color: "#3b4ce2" },
+      transition: "opacity 0.2s ease-in-out",
+    },
+    // When focused or if text is present, hide the label completely
+    "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+      opacity: 0,
     },
     "& .MuiInputBase-input": {
       fontSize: "0.875rem",
@@ -215,11 +212,13 @@ const ManageClient = () => {
   };
 
   const resetForm = () => {
+    setClientId("");
     setName("");
     setEmail("");
     setPhone("");
     setAddress("");
     setIndustry("");
+    setContractId("");
     setContractStartDate("");
     setContractEndDate("");
     setCac("");
@@ -267,7 +266,7 @@ const ManageClient = () => {
             </MDBox>
             <MDBox pt={3} pb={2} px={2}>
               <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
-                Add clients
+                Add Clients
               </Button>
             </MDBox>
 
@@ -292,7 +291,6 @@ const ManageClient = () => {
                       <Typography variant="h4" sx={{ fontWeight: "bold", color: "#333", mb: 2 }}>
                         {client.name}
                       </Typography>
-
                       <Grid container spacing={2}>
                         <Grid item xs={12} md={6}>
                           <MDTypography variant="body2" color="textSecondary">
@@ -308,7 +306,6 @@ const ManageClient = () => {
                             <strong>Industry:</strong> {client.industry}
                           </MDTypography>
                         </Grid>
-
                         <Grid item xs={12} md={6}>
                           <MDTypography variant="body2" color="textSecondary">
                             <strong>Contract:</strong> {client.contractId}
@@ -337,7 +334,6 @@ const ManageClient = () => {
                           </MDTypography>
                         </Grid>
                       </Grid>
-
                       <Grid container spacing={2} mt={1}>
                         <Grid item xs={12} md={4}>
                           <MDTypography variant="body2" color="textSecondary">
@@ -356,7 +352,6 @@ const ManageClient = () => {
                         </Grid>
                       </Grid>
                     </CardContent>
-
                     <CardActions sx={{ display: "flex", justifyContent: "flex-end" }}>
                       <MDButton
                         variant="text"
@@ -372,17 +367,6 @@ const ManageClient = () => {
                       >
                         <Icon fontSize="medium">edit</Icon>&nbsp;Edit
                       </MDButton>
-                      <MDButton
-                        variant="text"
-                        color="error"
-                        onClick={() => {
-                          setDeleteId(client.id);
-                          setConfirmDeleteOpen(true);
-                        }}
-                        sx={{ ml: 1, padding: "12px 24px" }}
-                      >
-                        <Icon fontSize="medium">delete</Icon>&nbsp;Delete
-                      </MDButton>
                     </CardActions>
                   </Card>
                 </Grid>
@@ -396,65 +380,72 @@ const ManageClient = () => {
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>{editingClient ? "Edit Client" : "Add Client"}</DialogTitle>
         <DialogContent sx={{ py: 2, padding: "30px" }}>
-          <Grid container spacing={2}>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <TextField
+                fullWidth
+                label="Client ID"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                margin="dense"
+                required
+                sx={textFieldStyle}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
                 label="Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                fullWidth
                 margin="dense"
                 required
                 sx={textFieldStyle}
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
+                fullWidth
                 label="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                fullWidth
                 margin="dense"
                 required
                 sx={textFieldStyle}
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
+                fullWidth
                 label="Phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                fullWidth
                 margin="dense"
                 required
                 sx={textFieldStyle}
               />
             </Grid>
-
             <Grid item xs={12}>
               <TextField
+                fullWidth
                 label="Address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                fullWidth
                 margin="dense"
                 required
                 sx={textFieldStyle}
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
+                select
+                fullWidth
                 label="Industry"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                fullWidth
                 margin="dense"
                 required
                 sx={textFieldStyle}
-                select
               >
                 {industries.map((dept) => (
                   <MenuItem key={dept} value={dept}>
@@ -463,116 +454,134 @@ const ManageClient = () => {
                 ))}
               </TextField>
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
+                fullWidth
+                label="Contract ID"
+                value={contractId}
+                onChange={(e) => setContractId(e.target.value)}
+                margin="dense"
+                required
+                sx={textFieldStyle}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
                 type="date"
                 label="Contract Start Date"
                 value={contractStartDate}
                 onChange={(e) => setContractStartDate(e.target.value)}
-                fullWidth
                 margin="dense"
                 required
                 sx={textFieldStyle}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
+                fullWidth
                 type="date"
                 label="Contract End Date"
                 value={contractEndDate}
                 onChange={(e) => setContractEndDate(e.target.value)}
-                fullWidth
                 margin="dense"
                 sx={textFieldStyle}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-
             <Grid item xs={12} md={4}>
               <TextField
+                fullWidth
                 type="number"
                 label="CAC"
                 value={cac}
                 onChange={(e) => setCac(e.target.value)}
-                fullWidth
                 margin="dense"
                 sx={textFieldStyle}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment:
+                    cac.trim() === "" ? (
+                      <InputAdornment position="start">$ CAC</InputAdornment>
+                    ) : null,
                 }}
               />
             </Grid>
-
             <Grid item xs={12} md={4}>
               <TextField
+                fullWidth
                 type="number"
                 label="CLTV"
                 value={cltv}
                 onChange={(e) => setCltv(e.target.value)}
-                fullWidth
                 margin="dense"
                 sx={textFieldStyle}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment:
+                    cltv.trim() === "" ? (
+                      <InputAdornment position="start">$ CLTV</InputAdornment>
+                    ) : null,
                 }}
               />
             </Grid>
-
             <Grid item xs={12} md={4}>
               <TextField
+                fullWidth
                 type="number"
                 label="Revenue Generated"
                 value={revenueGenerated}
                 onChange={(e) => setRevenueGenerated(e.target.value)}
-                fullWidth
                 margin="dense"
                 sx={textFieldStyle}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment:
+                    revenueGenerated.trim() === "" ? (
+                      <InputAdornment position="start">$ Revenue Generated</InputAdornment>
+                    ) : null,
                 }}
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
+                fullWidth
                 type="number"
                 label="One-Time Revenue"
                 value={oneTimeRevenue}
                 onChange={(e) => setOneTimeRevenue(e.target.value)}
-                fullWidth
                 margin="dense"
                 sx={textFieldStyle}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment:
+                    oneTimeRevenue.trim() === "" ? (
+                      <InputAdornment position="start">$ One-Time Revenue</InputAdornment>
+                    ) : null,
                 }}
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
+                fullWidth
                 type="number"
                 label="Recurring Revenue"
                 value={recurringRevenue}
                 onChange={(e) => setRecurringRevenue(e.target.value)}
-                fullWidth
                 margin="dense"
                 sx={textFieldStyle}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment:
+                    recurringRevenue.trim() === "" ? (
+                      <InputAdornment position="start">$ Recurring Revenue</InputAdornment>
+                    ) : null,
                 }}
               />
             </Grid>
-
             <Grid item xs={12} md={6}>
               <TextField
                 select
+                fullWidth
                 label="Status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                fullWidth
                 margin="dense"
                 required
                 sx={textFieldStyle}
@@ -584,13 +593,12 @@ const ManageClient = () => {
                 ))}
               </TextField>
             </Grid>
-
             <Grid item xs={12}>
               <TextField
+                fullWidth
                 label="Notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                fullWidth
                 margin="dense"
                 sx={textFieldStyle}
               />
@@ -601,17 +609,6 @@ const ManageClient = () => {
           <Button onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSubmit} color="primary">
             Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirm Delete Dialog */}
-      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
-        <DialogTitle>Want to delete client data?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error">
-            Delete
           </Button>
         </DialogActions>
       </Dialog>
