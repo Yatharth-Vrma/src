@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types"; // Import PropTypes
 import {
   Button,
   Dialog,
@@ -11,14 +12,10 @@ import {
   Typography,
   Box,
   MenuItem,
-  Select,
-  InputLabel,
-  FormControl,
   Chip,
 } from "@mui/material";
 import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
-import MDAvatar from "components/MDAvatar";
 import MDBadge from "components/MDBadge";
 import DataTable from "examples/Tables/DataTable";
 import { db } from "./firebase";
@@ -66,11 +63,9 @@ const CustomButton = styled("button")({
 
 // Function to generate a unique employee ID
 const generateEmployeeId = (name) => {
-  const prefix = name
-    .substring(0, 3) // Take the first 3 letters of the name
-    .toUpperCase(); // Convert to uppercase
+  const prefix = name.substring(0, 3).toUpperCase(); // Take the first 3 letters of the name and convert to uppercase
   const randomNumber = Math.floor(Math.random() * 900 + 100); // Random 3-digit number between 100 and 999
-  return `${prefix}-${randomNumber}`;
+  return `${prefix}-${randomNumber}`; // Fixed template literal
 };
 
 const ManageEmployee = () => {
@@ -119,6 +114,7 @@ const ManageEmployee = () => {
     fetchData();
   }, []);
 
+  // Employee Component with PropTypes
   const Employee = ({ name, employeeId, email }) => (
     <MDBox display="flex" alignItems="center" lineHeight={1}>
       <MDBox ml={0} lineHeight={1.2}>
@@ -135,6 +131,13 @@ const ManageEmployee = () => {
     </MDBox>
   );
 
+  Employee.propTypes = {
+    name: PropTypes.string.isRequired,
+    employeeId: PropTypes.string.isRequired,
+    email: PropTypes.string.isRequired,
+  };
+
+  // DesignationDept Component with PropTypes
   const DesignationDept = ({ designation, department }) => (
     <MDBox lineHeight={1} textAlign="left">
       <MDTypography display="block" variant="caption" color="text" fontWeight="medium">
@@ -144,6 +147,12 @@ const ManageEmployee = () => {
     </MDBox>
   );
 
+  DesignationDept.propTypes = {
+    designation: PropTypes.string.isRequired,
+    department: PropTypes.string.isRequired,
+  };
+
+  // StatusBadge Component with PropTypes
   const StatusBadge = ({ status }) => {
     const colorMap = {
       Active: "success",
@@ -161,6 +170,10 @@ const ManageEmployee = () => {
         />
       </MDBox>
     );
+  };
+
+  StatusBadge.propTypes = {
+    status: PropTypes.string.isRequired,
   };
 
   const handleViewDetails = (employee) => {

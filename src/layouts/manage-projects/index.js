@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types"; // Import PropTypes
 import {
   Button,
   Dialog,
@@ -86,6 +87,12 @@ const Progress = ({ value, status }) => {
   );
 };
 
+// Add prop types for Progress component
+Progress.propTypes = {
+  value: PropTypes.number.isRequired,
+  status: PropTypes.string.isRequired,
+};
+
 // The Project component used inside the table for the "project" column.
 // It displays the project name with the project ID on a new line.
 const ProjectInfo = ({ name, projectId }) => (
@@ -100,6 +107,12 @@ const ProjectInfo = ({ name, projectId }) => (
     </MDBox>
   </MDBox>
 );
+
+// Add prop types for ProjectInfo component
+ProjectInfo.propTypes = {
+  name: PropTypes.string.isRequired,
+  projectId: PropTypes.string.isRequired,
+};
 
 const ManageProject = () => {
   // Dialog and state declarations
@@ -267,7 +280,7 @@ const ManageProject = () => {
       .map((word) => word.charAt(0).toUpperCase())
       .join("");
     const randomNumber = Math.floor(Math.random() * 1000);
-    return `${prefix}-${randomNumber}`;
+    return `${prefix}-${randomNumber}`; // Fixed template literal
   };
 
   // Handles deletion of a project from Firestore
