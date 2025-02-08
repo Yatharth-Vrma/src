@@ -103,7 +103,9 @@ const ManageAccount = () => {
   };
 
   const confirmUpdate = async () => {
-    const accountId = editingAccount ? editingAccount.accountId : `ACC-${Math.floor(1000 + Math.random() * 9000)}`;
+    const accountId = editingAccount
+      ? editingAccount.accountId
+      : `ACC-${Math.floor(1000 + Math.random() * 9000)}`;
     const calculatedProfitMargin = ((revenue - expenses) / revenue) * 100 || 0;
 
     const newAccount = {
