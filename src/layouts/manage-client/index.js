@@ -39,21 +39,14 @@ const formatTimestamp = (timestamp) => {
   return timestamp;
 };
 
-// Helper function to generate a random 3-digit number
-const generateRandomNumber = () => Math.floor(100 + Math.random() * 900);
+// Helper function to generate a random 4-digit number
+const generateRandomNumber = () => Math.floor(1000 + Math.random() * 9000);
 
 // Helper function to generate Client ID
-const generateClientId = (name) => {
-  const initials = name
-    .split(" ")
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
-  return `${initials}-${generateRandomNumber()}`;
-};
+const generateClientId = () => `CL-${generateRandomNumber()}`;
 
 // Helper function to generate Contract ID
-const generateContractId = () => `CON-${generateRandomNumber()}`;
+const generateContractId = () => `CN-${generateRandomNumber()}`;
 
 const ManageClient = () => {
   const [open, setOpen] = useState(false);
@@ -63,13 +56,11 @@ const ManageClient = () => {
   const [editingClient, setEditingClient] = useState(null);
 
   // Form states
-  const [clientId, setClientId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [industry, setIndustry] = useState("");
-  const [contractId, setContractId] = useState("");
   const [contractStartDate, setContractStartDate] = useState("");
   const [contractEndDate, setContractEndDate] = useState("");
   const [cac, setCac] = useState("");
@@ -109,13 +100,11 @@ const ManageClient = () => {
 
   const handleEdit = (client) => {
     setEditingClient(client);
-    setClientId(client.clientId || "");
     setName(client.name || "");
     setEmail(client.email || "");
     setPhone(client.phone || "");
     setAddress(client.address || "");
     setIndustry(client.industry || "");
-    setContractId(client.contractId || "");
     setContractStartDate(
       client.contractStartDate && typeof client.contractStartDate.toDate === "function"
         ? client.contractStartDate.toDate().toISOString().substring(0, 10)
@@ -143,13 +132,13 @@ const ManageClient = () => {
 
   const confirmUpdate = async () => {
     const newClient = {
-      clientId: editingClient ? editingClient.clientId : generateClientId(name), // Only generate new ID if adding a new client
+      clientId: editingClient ? editingClient.clientId : generateClientId(), // Generate new ID if adding a new client
       name,
       email,
       phone,
       address,
       industry,
-      contractId: generateContractId(),
+      contractId: editingClient ? editingClient.contractId : generateContractId(), // Only generate new contract ID if adding a new client
       contractStartDate,
       contractEndDate,
       Metrics: {
@@ -167,7 +156,7 @@ const ManageClient = () => {
       createdAt: editingClient ? editingClient.createdAt : new Date(),
       updatedAt: new Date(),
     };
-
+  
     if (editingClient) {
       await updateDoc(doc(db, "clients", editingClient.id), newClient);
       setClients(
@@ -179,19 +168,17 @@ const ManageClient = () => {
       const docRef = await addDoc(collection(db, "clients"), newClient);
       setClients([...clients, { id: docRef.id, ...newClient }]);
     }
-
+  
     setConfirmUpdateOpen(false);
     handleClose();
   };
-
+  
   const resetForm = () => {
-    setClientId("");
     setName("");
     setEmail("");
     setPhone("");
     setAddress("");
     setIndustry("");
-    setContractId("");
     setContractStartDate("");
     setContractEndDate("");
     setCac("");
@@ -357,14 +344,6 @@ const ManageClient = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Client ID"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
                 label="Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -408,14 +387,6 @@ const ManageClient = () => {
                   </MenuItem>
                 ))}
               </TextField>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Contract ID"
-                value={contractId}
-                onChange={(e) => setContractId(e.target.value)}
-              />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
@@ -511,6 +482,32 @@ const ManageClient = () => {
                   </MenuItem>
                 ))}
               </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                options={projects}
+                getOptionLabel={(option) => option.projectId || ""}
+                value={selectedProjects}
+                onChange={(event, newValue) => {
+                  setSelectedProjects(newValue);
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Project ID"
+                    placeholder="Select Project ID"
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      label={option.projectId}
+                      {...getTagProps({ index })}
+                    />
+                  ))
+                }
+              />
             </Grid>
             <Grid item xs={12}>
               <TextField

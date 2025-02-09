@@ -42,7 +42,6 @@ const ManageAccount = () => {
   const [industry, setIndustry] = useState("");
   const [revenue, setRevenue] = useState("");
   const [expenses, setExpenses] = useState("");
-  const [profitMargin, setProfitMargin] = useState("");
   const [projects, setProjects] = useState([]);
   const [clients, setClients] = useState([]);
   const [status, setStatus] = useState("");
@@ -88,7 +87,6 @@ const ManageAccount = () => {
     setIndustry(account.industry || "");
     setRevenue(account.revenue || "");
     setExpenses(account.expenses || "");
-    setProfitMargin(account.profitMargin || "");
     setProjects(account.projects || []);
     setClients(account.clients || []);
     setStatus(account.status || "");
@@ -104,7 +102,9 @@ const ManageAccount = () => {
     const accountId = editingAccount
       ? editingAccount.accountId
       : `ACC-${Math.floor(1000 + Math.random() * 9000)}`;
-    const calculatedProfitMargin = ((revenue - expenses) / revenue) * 100 || 0;
+    
+    // Calculate profit margin based on revenue and expenses
+    const calculatedProfitMargin = revenue && expenses ? ((revenue - expenses) / revenue) * 100 : 0;
 
     const newAccount = {
       accountId,
@@ -112,7 +112,7 @@ const ManageAccount = () => {
       industry,
       revenue,
       expenses,
-      profitMargin: calculatedProfitMargin.toFixed(2),
+      profitMargin: calculatedProfitMargin.toFixed(2), // Store calculated profit margin
       projects,
       clients,
       status,
@@ -138,7 +138,6 @@ const ManageAccount = () => {
     setIndustry("");
     setRevenue("");
     setExpenses("");
-    setProfitMargin("");
     setProjects([]);
     setClients([]);
     setStatus("");
@@ -331,18 +330,6 @@ const ManageAccount = () => {
                 onChange={(e) => setExpenses(e.target.value)}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Profit Margin"
-                value={profitMargin}
-                onChange={(e) => setProfitMargin(e.target.value)}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">%</InputAdornment>,
                 }}
               />
             </Grid>
