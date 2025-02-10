@@ -220,8 +220,11 @@ const ManageProject = () => {
 
   // Function to handle project update/add submission; shows confirmation dialog
   const handleSubmit = async () => {
-    const clientExists = await checkIfClientExists(selectedClient);
-    const accountExists = await checkIfAccountExists(selectedAccount);
+    const clientId = selectedClient?.clientId;
+    const accountId = selectedAccount?.accountId;
+
+    const clientExists = clientId ? await checkIfClientExists(clientId) : false;
+    const accountExists = accountId ? await checkIfAccountExists(accountId) : false;
 
     if (!clientExists || !accountExists) {
       setInvalidClientId(!clientExists);
@@ -443,80 +446,98 @@ const ManageProject = () => {
         fullWidth
       >
         <DialogTitle>Project Details</DialogTitle>
+        
         <DialogContent>
-          {selectedProject && (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Project ID</Typography>
-                <Typography>{selectedProject.projectId}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Name</Typography>
-                <Typography>{selectedProject.name}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Account ID</Typography>
-                <Typography>{selectedProject.accountId}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Client ID</Typography>
-                <Typography>{selectedProject.clientId}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Team</Typography>
-                <Typography>{selectedProject.team}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Budget</Typography>
-                <Typography>${selectedProject.financialMetrics?.budget || 0}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Expenses</Typography>
-                <Typography>${selectedProject.financialMetrics?.expenses || 0}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">ROI (%)</Typography>
-                <Typography>{selectedProject.financialMetrics?.roi || 0}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Burn Rate</Typography>
-                <Typography>{selectedProject.financialMetrics?.burnRate || 0}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Profit Margin (%)</Typography>
-                <Typography>{selectedProject.financialMetrics?.profitMargin || 0}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Revenue Generated</Typography>
-                <Typography>{selectedProject.financialMetrics?.revenueGenerated || 0}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Expected Revenue</Typography>
-                <Typography>{selectedProject.financialMetrics?.expectedRevenue || 0}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Start Date</Typography>
-                <Typography>{selectedProject.startDate}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">End Date</Typography>
-                <Typography>{selectedProject.endDate || "Ongoing"}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Status</Typography>
-                <Typography>{selectedProject.status}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Completion (%)</Typography>
-                <Typography>{selectedProject.completion}%</Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2">Description</Typography>
-                <Typography>{selectedProject.description}</Typography>
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
+  {selectedProject && (
+    <Grid container spacing={2} sx={{ mt: 1 }}>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Project ID</Typography>
+        <Typography>{selectedProject.projectId || "N/A"}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Name</Typography>
+        <Typography>{selectedProject.name || "N/A"}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Account ID</Typography>
+        <Typography>{selectedProject.accountId?.accountId || selectedProject.accountId || "N/A"}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Client ID</Typography>
+        <Typography>{selectedProject.clientId?.clientId || selectedProject.clientId || "N/A"}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Team</Typography>
+        <Typography>
+          {Array.isArray(selectedProject.team)
+            ? selectedProject.team.join(", ") // Convert array to comma-separated string
+            : typeof selectedProject.team === "object"
+            ? JSON.stringify(selectedProject.team) // Convert object to string
+            : selectedProject.team || "N/A"}
+        </Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Budget</Typography>
+        <Typography>${selectedProject.financialMetrics?.budget || 0}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Expenses</Typography>
+        <Typography>${selectedProject.financialMetrics?.expenses || 0}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">ROI (%)</Typography>
+        <Typography>{selectedProject.financialMetrics?.roi || 0}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Burn Rate</Typography>
+        <Typography>{selectedProject.financialMetrics?.burnRate || 0}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Profit Margin (%)</Typography>
+        <Typography>{selectedProject.financialMetrics?.profitMargin || 0}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Revenue Generated</Typography>
+        <Typography>{selectedProject.financialMetrics?.revenueGenerated || 0}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Expected Revenue</Typography>
+        <Typography>{selectedProject.financialMetrics?.expectedRevenue || 0}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Start Date</Typography>
+        <Typography>
+          {selectedProject.startDate
+            ? new Date(selectedProject.startDate).toLocaleDateString()
+            : "N/A"}
+        </Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">End Date</Typography>
+        <Typography>
+          {selectedProject.endDate
+            ? new Date(selectedProject.endDate).toLocaleDateString()
+            : "Ongoing"}
+        </Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Status</Typography>
+        <Typography>{selectedProject.status || "N/A"}</Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="subtitle2">Completion (%)</Typography>
+        <Typography>
+          {selectedProject.completion !== undefined ? `${selectedProject.completion}%` : "N/A"}
+        </Typography>
+      </Grid>
+      <Grid item xs={12}>
+        <Typography variant="subtitle2">Description</Typography>
+        <Typography>{selectedProject.description || "No description available"}</Typography>
+      </Grid>
+    </Grid>
+  )}
+</DialogContent>
+
         <DialogActions>
           <Button onClick={() => setViewDetailsOpen(false)}>Close</Button>
           <Button onClick={handleEditFromDetails} color="primary">
