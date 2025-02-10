@@ -7,7 +7,7 @@ import { db } from "../manage-employee/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 import { Timestamp } from "firebase/firestore";
 
-const ManageEarning = () => {
+const ManageEarningsCopy = () => {
   const [earnings, setEarnings] = useState([]);
   const [selectedEarning, setSelectedEarning] = useState(null);
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
@@ -18,20 +18,30 @@ const ManageEarning = () => {
         .filter((doc) => doc.data().status?.toLowerCase() === "completed")
         .map((doc) => {
           const data = doc.data();
-          return {
+          
+          // Debugging Firestore Data
+          console.log("Firestore Document Data:", data);
+
+          const earning = {
             earningId: `E-${Math.floor(10000 + Math.random() * 90000)}`,
-            clientId: data.clientId || "N/A",
-            accountId: data.accountId || "N/A",
-            amount: data.revenueGenerated || 0,
+            clientId: data.clientId?.clientId || "N/A", // ✅ Extracting from clientId map
+            accountId: data.accountId?.accountId || "N/A", // ✅ Extracting from accountId map
+            amount: data.financialMetrics?.revenueGenerated || 0, // ✅ Extracting from financialMetrics
             date:
-              data.endDate || "N/A"
-                ? data.endDate instanceof Timestamp
-                  ? data.endDate.toDate().toLocaleDateString()
-                  : new Date(data.endDate).toLocaleDateString()
+              data.endDate instanceof Timestamp
+                ? data.endDate.toDate().toLocaleDateString()
+                : data.endDate
+                ? new Date(data.endDate).toLocaleDateString()
                 : "N/A",
             projectId: data.projectId || "N/A",
           };
+
+          // Debugging Processed Data
+          console.log("Processed Earning:", earning);
+
+          return earning;
         });
+
       setEarnings(completedEarnings);
     });
 
@@ -42,19 +52,19 @@ const ManageEarning = () => {
     columns: [
       { Header: "Earning ID", accessor: "earningId", align: "left" },
       { Header: "Client ID", accessor: "clientId", align: "left" },
-      { Header: "Amount", accessor: "amount", align: "left" },
+      { Header: "Account ID", accessor: "accountId", align: "left" },
+      { Header: "Amount", accessor: "amount", align: "left" }, // ✅ FIXED accessor
       { Header: "Date", accessor: "date", align: "left" },
       { Header: "Project ID", accessor: "projectId", align: "left" },
-      { Header: "Account ID", accessor: "accountId", align: "left" },
       { Header: "Action", accessor: "action", align: "center" },
     ],
     rows: earnings.map((earning) => ({
       earningId: earning.earningId,
       clientId: earning.clientId,
-      amount: `$${earning.amount}`, // Display amount in currency format
+      accountId: earning.accountId,
+      amount: `$${earning.amount.toFixed(2)}`, // ✅ Properly formatted currency
       date: earning.date,
       projectId: earning.projectId,
-      accountId: earning.accountId,
       action: (
         <MDBox display="flex" justifyContent="center">
           <Button
@@ -71,6 +81,8 @@ const ManageEarning = () => {
       ),
     })),
   };
+
+  console.log("Table Data:", tableData); // ✅ Debugging Table Data
 
   return (
     <MDBox p={3} sx={{ marginLeft: "250px", marginTop: "30px", width: "calc(100% - 250px)" }}>
@@ -110,4 +122,4 @@ const ManageEarning = () => {
   );
 };
 
-export default ManageEarning;
+export default ManageEarningsCopy;

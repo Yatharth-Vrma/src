@@ -260,8 +260,15 @@ const ManageProject = () => {
   // Called once the update confirmation is accepted.
   // It adds a new project or updates an existing one in Firestore.
   const confirmUpdate = async () => {
-    const projectId = generateProjectId(name);
-
+    let projectId;
+  
+    // Generate project ID only if it's a new project
+    if (!editingProject) {
+      projectId = generateUniqueProjectId(name);
+    } else {
+      projectId = editingProject.projectId; // Use the existing project ID for updates
+    }
+  
     const newProject = {
       projectId,
       name,
@@ -284,7 +291,7 @@ const ManageProject = () => {
       description,
       completion,
     };
-
+  
     if (editingProject) {
       await updateDoc(doc(db, "projects", editingProject.id), newProject);
       setProjects(
@@ -294,21 +301,30 @@ const ManageProject = () => {
       const docRef = await addDoc(collection(db, "projects"), newProject);
       setProjects([...projects, { id: docRef.id, ...newProject }]);
     }
-
+  
     setConfirmUpdateOpen(false);
     handleClose();
   };
-
-  // Generate a Project ID based on the project name and a random number
-  const generateProjectId = (name) => {
-    const prefix = name
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase())
-      .join("");
-    const randomNumber = Math.floor(Math.random() * 1000);
-    return `${prefix}-${randomNumber}`; // Fixed template literal
+  
+  const generateUniqueProjectId = (name) => {
+    let projectId;
+    let isUnique = false;
+  
+    while (!isUnique) {
+      const prefix = name
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase())
+        .join("");
+      const randomNumber = Math.floor(Math.random() * 1000);
+      projectId = `${prefix}-${randomNumber}`;
+  
+      // Check if the generated project ID already exists
+      isUnique = !projects.some((project) => project.projectId === projectId);
+    }
+  
+    return projectId;
   };
-
+  
   // Handles deletion of a project from Firestore
   const handleDelete = async () => {
     await deleteDoc(doc(db, "projects", deleteId));
