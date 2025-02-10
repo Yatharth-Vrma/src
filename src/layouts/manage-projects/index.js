@@ -220,19 +220,19 @@ const ManageProject = () => {
 
   // Function to handle project update/add submission; shows confirmation dialog
   const handleSubmit = async () => {
-    console.log("Submit button clicked"); // Debugging line
     const clientExists = await checkIfClientExists(selectedClient);
     const accountExists = await checkIfAccountExists(selectedAccount);
-  
-    console.log("Client exists:", clientExists); // Debugging line
-    console.log("Account exists:", accountExists); // Debugging line
-  
+
     if (!clientExists || !accountExists) {
       setInvalidClientId(!clientExists);
       setInvalidAccountId(!accountExists);
       return;
     }
-  
+
+    // Calculate revenue based on budget and expenses
+    const calculatedRevenue = calculateRevenue(budget, expenses);
+    setRevenueGenerated(calculatedRevenue);
+
     setConfirmUpdateOpen(true);
   };
 
@@ -247,12 +247,18 @@ const ManageProject = () => {
     return querySnapshot.docs.some((doc) => doc.data().accountId === accountId);
   };
 
+  // Calculate revenue based on budget and expenses
+  const calculateRevenue = (budget, expenses) => {
+    const budgetValue = parseFloat(budget) || 0;
+    const expensesValue = parseFloat(expenses) || 0;
+    return budgetValue - expensesValue; // Simple calculation for revenue
+  };
+
   // Called once the update confirmation is accepted.
   // It adds a new project or updates an existing one in Firestore.
   const confirmUpdate = async () => {
-    console.log("Confirm update button clicked"); // Debugging line
     const projectId = generateProjectId(name);
-  
+
     const newProject = {
       projectId,
       name,
@@ -275,19 +281,17 @@ const ManageProject = () => {
       description,
       completion,
     };
-  
+
     if (editingProject) {
-      console.log("Updating project:", editingProject.id); // Debugging line
       await updateDoc(doc(db, "projects", editingProject.id), newProject);
       setProjects(
         projects.map((proj) => (proj.id === editingProject.id ? { ...proj, ...newProject } : proj))
       );
     } else {
-      console.log("Adding new project"); // Debugging line
       const docRef = await addDoc(collection(db, "projects"), newProject);
       setProjects([...projects, { id: docRef.id, ...newProject }]);
     }
-  
+
     setConfirmUpdateOpen(false);
     handleClose();
   };

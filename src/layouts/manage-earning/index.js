@@ -24,7 +24,7 @@ const ManageEarning = () => {
           const data = doc.data();
           return {
             earningId: `E-${Math.floor(10000 + Math.random() * 90000)}`,
-            clientId: data.clientId || "N/A",
+            clientId: data.clientId || "N/a",
             accountId: data.accountId || "N/A",
             amount: data.revenueGenerated || 0,
             date: data.endDate || "N/A"
