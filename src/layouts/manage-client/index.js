@@ -156,7 +156,7 @@ const ManageClient = () => {
       createdAt: editingClient ? editingClient.createdAt : new Date(),
       updatedAt: new Date(),
     };
-  
+
     if (editingClient) {
       await updateDoc(doc(db, "clients", editingClient.id), newClient);
       setClients(
@@ -168,11 +168,11 @@ const ManageClient = () => {
       const docRef = await addDoc(collection(db, "clients"), newClient);
       setClients([...clients, { id: docRef.id, ...newClient }]);
     }
-  
+
     setConfirmUpdateOpen(false);
     handleClose();
   };
-  
+
   const resetForm = () => {
     setName("");
     setEmail("");
@@ -493,18 +493,11 @@ const ManageClient = () => {
                   setSelectedProjects(newValue);
                 }}
                 renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Project ID"
-                    placeholder="Select Project ID"
-                  />
+                  <TextField {...params} label="Project ID" placeholder="Select Project ID" />
                 )}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
-                    <Chip
-                      label={option.projectId}
-                      {...getTagProps({ index })}
-                    />
+                    <Chip label={option.projectId} {...getTagProps({ index })} />
                   ))
                 }
               />

@@ -187,13 +187,7 @@ const ManageRoles = () => {
           }}
         >
           {/* Card Header with Add Role Button */}
-          <MDBox
-            pt={3}
-            px={2}
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-          >
+          <MDBox pt={3} px={2} display="flex" justifyContent="space-between" alignItems="center">
             <MDTypography variant="h6" fontWeight="medium">
               Role Management
             </MDTypography>

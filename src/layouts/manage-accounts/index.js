@@ -102,7 +102,7 @@ const ManageAccount = () => {
     const accountId = editingAccount
       ? editingAccount.accountId
       : `ACC-${Math.floor(1000 + Math.random() * 9000)}`;
-    
+
     // Calculate profit margin based on revenue and expenses
     const calculatedProfitMargin = revenue && expenses ? ((revenue - expenses) / revenue) * 100 : 0;
 

@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Button,
-  Grid,
-  Card,
-} from "@mui/material";
+import { Button, Grid, Card } from "@mui/material";
 import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 import DataTable from "examples/Tables/DataTable";
@@ -24,20 +20,21 @@ const ManageEarning = () => {
           const data = doc.data();
           return {
             earningId: `E-${Math.floor(10000 + Math.random() * 90000)}`,
-            clientId: data.clientId || "N/a",
+            clientId: data.clientId || "N/A",
             accountId: data.accountId || "N/A",
             amount: data.revenueGenerated || 0,
-            date: data.endDate || "N/A"
-              ? data.endDate instanceof Timestamp
-                ? data.endDate.toDate().toLocaleDateString()
-                : new Date(data.endDate).toLocaleDateString()
-              : "N/A",
+            date:
+              data.endDate || "N/A"
+                ? data.endDate instanceof Timestamp
+                  ? data.endDate.toDate().toLocaleDateString()
+                  : new Date(data.endDate).toLocaleDateString()
+                : "N/A",
             projectId: data.projectId || "N/A",
           };
         });
       setEarnings(completedEarnings);
     });
-    
+
     return () => unsubscribe();
   }, []);
 
@@ -93,7 +90,9 @@ const ManageEarning = () => {
               justifyContent="space-between"
               alignItems="center"
             >
-              <MDTypography variant="h6" color="white">Earnings</MDTypography>
+              <MDTypography variant="h6" color="white">
+                Earnings
+              </MDTypography>
             </MDBox>
             <MDBox pt={3} pb={2} px={2}>
               <DataTable

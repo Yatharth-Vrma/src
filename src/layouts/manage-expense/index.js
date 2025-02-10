@@ -193,7 +193,7 @@ const ManageExpenses = () => {
       alert("Please enter a valid date.");
       return; // Exit the function if the date is invalid
     }
-  
+
     const newExpense = {
       expenseId: editingExpense ? editingExpense.expenseId : generateExpenseId(),
       category: Array.isArray(category) ? category : [category], // Ensure array
@@ -204,7 +204,7 @@ const ManageExpenses = () => {
       accountId: accountId || null,
       recurring,
     };
-  
+
     if (editingExpense) {
       await updateDoc(doc(db, "expenses", editingExpense.id), newExpense);
       setExpenses(
@@ -214,11 +214,11 @@ const ManageExpenses = () => {
       const docRef = await addDoc(collection(db, "expenses"), newExpense);
       setExpenses([...expenses, { id: docRef.id, ...newExpense }]);
     }
-  
+
     setConfirmUpdateOpen(false);
     handleClose();
   };
-  
+
   // Handle deletion of an expense
   const handleDelete = async () => {
     await deleteDoc(doc(db, "expenses", deleteId));
