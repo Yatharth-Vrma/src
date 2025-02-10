@@ -125,14 +125,16 @@ const ManageProject = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [employees, setEmployees] = useState([]);
+  const [clients, setClients] = useState([]); // State for clients
+  const [accounts, setAccounts] = useState([]); // State for accounts
   const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null); // State for selected client
+  const [selectedAccount, setSelectedAccount] = useState(null); // State for selected account
   const [invalidClientId, setInvalidClientId] = useState(false);
   const [invalidAccountId, setInvalidAccountId] = useState(false);
 
   // Form states
   const [name, setName] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [clientId, setClientId] = useState("");
   const [team, setTeam] = useState("");
   const [budget, setBudget] = useState("");
   const [expenses, setExpenses] = useState("");
@@ -147,7 +149,7 @@ const ManageProject = () => {
   const [description, setDescription] = useState("");
   const [completion, setCompletion] = useState("");
 
-  // Fetch projects and employees from Firestore on component mount
+  // Fetch projects, employees, clients, and accounts from Firestore on component mount
   useEffect(() => {
     const fetchProjects = async () => {
       const querySnapshot = await getDocs(collection(db, "projects"));
@@ -157,8 +159,19 @@ const ManageProject = () => {
       const querySnapshot = await getDocs(collection(db, "employees"));
       setEmployees(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     };
+    const fetchClients = async () => {
+      const querySnapshot = await getDocs(collection(db, "clients"));
+      setClients(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    };
+    const fetchAccounts = async () => {
+      const querySnapshot = await getDocs(collection(db, "accounts"));
+      setAccounts(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    };
+
     fetchProjects();
     fetchEmployees();
+    fetchClients();
+    fetchAccounts();
   }, []);
 
   // Opens the Add/Edit form dialog and resets form fields
@@ -185,8 +198,6 @@ const ManageProject = () => {
     const project = selectedProject;
     setEditingProject(project);
     setName(project.name);
-    setAccountId(project.accountId);
-    setClientId(project.clientId);
     setTeam(project.team);
     setBudget(project.financialMetrics?.budget || "");
     setExpenses(project.financialMetrics?.expenses || "");
@@ -201,22 +212,27 @@ const ManageProject = () => {
     setDescription(project.description);
     setCompletion(project.completion || "");
     setSelectedEmployees(project.teamMembers || []);
+    setSelectedClient(project.clientId); // Set selected client
+    setSelectedAccount(project.accountId); // Set selected account
     setViewDetailsOpen(false);
     setOpen(true);
   };
 
   // Function to handle project update/add submission; shows confirmation dialog
   const handleSubmit = async () => {
-    // Validate Client ID and Account ID
-    const clientExists = await checkIfClientExists(clientId);
-    const accountExists = await checkIfAccountExists(accountId);
-
+    console.log("Submit button clicked"); // Debugging line
+    const clientExists = await checkIfClientExists(selectedClient);
+    const accountExists = await checkIfAccountExists(selectedAccount);
+  
+    console.log("Client exists:", clientExists); // Debugging line
+    console.log("Account exists:", accountExists); // Debugging line
+  
     if (!clientExists || !accountExists) {
       setInvalidClientId(!clientExists);
       setInvalidAccountId(!accountExists);
       return;
     }
-
+  
     setConfirmUpdateOpen(true);
   };
 
@@ -234,13 +250,14 @@ const ManageProject = () => {
   // Called once the update confirmation is accepted.
   // It adds a new project or updates an existing one in Firestore.
   const confirmUpdate = async () => {
+    console.log("Confirm update button clicked"); // Debugging line
     const projectId = generateProjectId(name);
-
+  
     const newProject = {
       projectId,
       name,
-      accountId,
-      clientId,
+      accountId: selectedAccount,
+      clientId: selectedClient,
       team,
       teamMembers: selectedEmployees,
       financialMetrics: {
@@ -258,17 +275,19 @@ const ManageProject = () => {
       description,
       completion,
     };
-
+  
     if (editingProject) {
+      console.log("Updating project:", editingProject.id); // Debugging line
       await updateDoc(doc(db, "projects", editingProject.id), newProject);
       setProjects(
         projects.map((proj) => (proj.id === editingProject.id ? { ...proj, ...newProject } : proj))
       );
     } else {
+      console.log("Adding new project"); // Debugging line
       const docRef = await addDoc(collection(db, "projects"), newProject);
       setProjects([...projects, { id: docRef.id, ...newProject }]);
     }
-
+  
     setConfirmUpdateOpen(false);
     handleClose();
   };
@@ -294,8 +313,6 @@ const ManageProject = () => {
   // Resets all form fields
   const resetForm = () => {
     setName("");
-    setAccountId("");
-    setClientId("");
     setTeam("");
     setBudget("");
     setExpenses("");
@@ -311,6 +328,8 @@ const ManageProject = () => {
     setCompletion("");
     setSelectedEmployees([]);
     setEditingProject(null);
+    setSelectedClient(null); // Reset selected client
+    setSelectedAccount(null); // Reset selected account
     setInvalidClientId(false);
     setInvalidAccountId(false);
   };
@@ -524,24 +543,26 @@ const ManageProject = () => {
                 onChange={(e) => setName(e.target.value)}
               />
             </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Account ID"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                error={invalidAccountId}
-                helperText={invalidAccountId ? "Invalid Account ID" : ""}
+            <Grid item xs={12}>
+              <Autocomplete
+                options={clients}
+                getOptionLabel={(option) => option.clientId} // Assuming clientId is the field you want to display
+                value={selectedClient}
+                onChange={(event, newValue) => setSelectedClient(newValue)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Select Client ID" fullWidth />
+                )}
               />
             </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Client ID"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                error={invalidClientId}
-                helperText={invalidClientId ? "Invalid Client ID" : ""}
+            <Grid item xs={12}>
+              <Autocomplete
+                options={accounts}
+                getOptionLabel={(option) => option.accountId} // Assuming accountId is the field you want to display
+                value={selectedAccount}
+                onChange={(event, newValue) => setSelectedAccount(newValue)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Select Account ID" fullWidth />
+                )}
               />
             </Grid>
             <Grid item xs={12}>

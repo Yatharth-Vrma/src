@@ -30,14 +30,10 @@ const statuses = ["Active", "Archived"];
 const experienceLevels = ["Entry-level", "Mid-level", "Senior-level"];
 const departments = ["Development", "HR", "Marketing", "Finance", "Operations"];
 
-const generateRoleId = (roleName) => {
-  const prefix = roleName
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase())
-    .join("")
-    .substring(0, 3);
+// Generate a unique role ID in the format "Role-XXX"
+const generateRoleId = () => {
   const randomNumber = Math.floor(Math.random() * 900) + 100; // Generates a random 3-digit number
-  return `${prefix}-${randomNumber}`;
+  return `Role-${randomNumber}`;
 };
 
 const ManageRoles = () => {
@@ -98,7 +94,7 @@ const ManageRoles = () => {
   };
 
   const confirmUpdate = async () => {
-    const roleId = editingRole ? editingRole.roleId : generateRoleId(roleName);
+    const roleId = editingRole ? editingRole.roleId : generateRoleId(); // Generate role ID
     const newRole = {
       roleId,
       roleName,
@@ -195,8 +191,8 @@ const ManageRoles = () => {
             pt={3}
             px={2}
             display="flex"
-            justifyContent="space-between" // Aligns title and button side by side
-            alignItems="center" // Vertically centers the content
+            justifyContent="space-between"
+            alignItems="center"
           >
             <MDTypography variant="h6" fontWeight="medium">
               Role Management
@@ -255,7 +251,11 @@ const ManageRoles = () => {
                         marginBottom: "8px",
                       }}
                     >
-                      {role.roleId}
+                      {role.roleId} {/* Display Role ID */}
+                    </Typography>
+
+                    <Typography sx={{ fontSize: "14px", color: "#555", marginBottom: "4px" }}>
+                      <strong>Role Name:</strong> {role.roleName}
                     </Typography>
 
                     <Typography sx={{ fontSize: "14px", color: "#555", marginBottom: "4px" }}>
@@ -301,7 +301,7 @@ const ManageRoles = () => {
                   <CardActions
                     sx={{
                       display: "flex",
-                      justifyContent: "flex-end", // Pushes buttons to the right
+                      justifyContent: "flex-end",
                       alignItems: "center",
                       mt: { xs: 2, sm: 0 },
                     }}
@@ -315,9 +315,9 @@ const ManageRoles = () => {
                         fontWeight: "bold",
                         textTransform: "none",
                         borderRadius: "8px",
-                        padding: "12px 24px", // Increased padding for larger size
-                        fontSize: "16px", // Increased font size
-                        minWidth: "120px", // Ensures a consistent button width
+                        padding: "12px 24px",
+                        fontSize: "16px",
+                        minWidth: "120px",
                         transition: "0.3s",
                         "&:hover": {
                           background:
@@ -337,9 +337,9 @@ const ManageRoles = () => {
                       }}
                       sx={{
                         ml: 1,
-                        padding: "12px 24px", // Increased padding for larger size
-                        fontSize: "16px", // Increased font size
-                        minWidth: "120px", // Ensures a consistent button width
+                        padding: "12px 24px",
+                        fontSize: "16px",
+                        minWidth: "120px",
                       }}
                     >
                       <Icon fontSize="medium">delete</Icon>&nbsp;Delete
@@ -522,23 +522,6 @@ const ManageRoles = () => {
                   margin="dense"
                   required
                   placeholder="Separate with commas"
-                  sx={textFieldStyle}
-                />
-              </Grid>
-
-              {/* Salary Range (Min) */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type="number"
-                  label="Salary Range (Min)"
-                  value={salaryRange.min}
-                  onChange={(e) => setSalaryRange({ ...salaryRange, min: e.target.value })}
-                  fullWidth
-                  margin="dense"
-                  required
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                  }}
                   sx={textFieldStyle}
                 />
               </Grid>

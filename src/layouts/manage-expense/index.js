@@ -23,7 +23,6 @@ import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 import MDButton from "components/MDButton";
 import Icon from "@mui/material/Icon";
-
 import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 
@@ -53,25 +52,20 @@ const ManageExpenses = () => {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState([]);
   const [accountId, setAccountId] = useState("");
   const [recurring, setRecurring] = useState(false);
 
-  // Helper function to format Firestore Timestamps
-  const formatTimestamp = (timestamp) => {
-    if (timestamp && typeof timestamp.toDate === "function") {
-      return timestamp.toDate().toLocaleDateString();
-    }
-    return timestamp;
-  };
+  // New states for Project IDs and Account IDs
+  const [projectIds, setProjectIds] = useState([]);
+  const [accountIds, setAccountIds] = useState([]);
 
-  // Fetch expenses from Firestore
+  // Fetch expenses and IDs from Firestore
   useEffect(() => {
     const fetchExpenses = async () => {
       const querySnapshot = await getDocs(collection(db, "expenses"));
       const expensesData = querySnapshot.docs.map((doc) => {
         const data = doc.data();
-        // Ensure category is an array
         const category = Array.isArray(data.category)
           ? data.category
           : [data.category].filter((c) => c);
@@ -80,7 +74,22 @@ const ManageExpenses = () => {
       setExpenses(expensesData);
       setFilteredExpenses(expensesData);
     };
+
+    const fetchProjectIds = async () => {
+      const querySnapshot = await getDocs(collection(db, "projects")); // Assuming you have a "projects" collection
+      const projectIdsData = querySnapshot.docs.map((doc) => doc.data().projectId); // Adjust according to your data structure
+      setProjectIds(projectIdsData);
+    };
+
+    const fetchAccountIds = async () => {
+      const querySnapshot = await getDocs(collection(db, "accounts")); // Assuming you have an "accounts" collection
+      const accountIdsData = querySnapshot.docs.map((doc) => doc.data().accountId); // Adjust according to your data structure
+      setAccountIds(accountIdsData);
+    };
+
     fetchExpenses();
+    fetchProjectIds();
+    fetchAccountIds();
   }, []);
 
   // Add this useEffect for date filtering
@@ -149,7 +158,6 @@ const ManageExpenses = () => {
   // Populate form fields for editing an expense
   const handleEdit = (expense) => {
     setEditingExpense(expense);
-    // Convert to array if necessary
     const categoryArray = Array.isArray(expense.category)
       ? expense.category
       : [expense.category].filter((c) => c);
@@ -161,7 +169,7 @@ const ManageExpenses = () => {
         : expense.date || ""
     );
     setDescription(expense.description);
-    setProjectId(expense.projectId || "");
+    setProjectId(expense.projectId || []);
     setAccountId(expense.accountId || "");
     setRecurring(expense.recurring || false);
     setOpen(true);
@@ -179,17 +187,24 @@ const ManageExpenses = () => {
 
   // Confirm update or add expense in Firestore
   const confirmUpdate = async () => {
+    // Check if the date is valid
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) {
+      alert("Please enter a valid date.");
+      return; // Exit the function if the date is invalid
+    }
+  
     const newExpense = {
       expenseId: editingExpense ? editingExpense.expenseId : generateExpenseId(),
       category: Array.isArray(category) ? category : [category], // Ensure array
       amount: Number(amount),
-      date: new Date(date),
+      date: parsedDate, // Use the parsed date
       description,
       projectId: projectId || null,
       accountId: accountId || null,
       recurring,
     };
-
+  
     if (editingExpense) {
       await updateDoc(doc(db, "expenses", editingExpense.id), newExpense);
       setExpenses(
@@ -199,11 +214,11 @@ const ManageExpenses = () => {
       const docRef = await addDoc(collection(db, "expenses"), newExpense);
       setExpenses([...expenses, { id: docRef.id, ...newExpense }]);
     }
-
+  
     setConfirmUpdateOpen(false);
     handleClose();
   };
-
+  
   // Handle deletion of an expense
   const handleDelete = async () => {
     await deleteDoc(doc(db, "expenses", deleteId));
@@ -217,7 +232,7 @@ const ManageExpenses = () => {
     setAmount("");
     setDate("");
     setDescription("");
-    setProjectId("");
+    setProjectId([]);
     setAccountId("");
     setRecurring(false);
     setEditingExpense(null);
@@ -288,9 +303,8 @@ const ManageExpenses = () => {
               <Box display="flex" gap={2} alignItems="center">
                 <FormControl
                   variant="outlined"
-                  size={"small"} // "small" or "medium"
+                  size={"small"}
                   sx={{
-                    // Use the width prop here
                     "& .MuiOutlinedInput-root": {
                       fontSize: "1rem",
                       padding: "12px 35px",
@@ -487,17 +501,25 @@ const ManageExpenses = () => {
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                label="Project ID"
+              <Autocomplete
+                multiple
+                options={projectIds}
                 value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
+                onChange={(event, newValue) => setProjectId(newValue)}
+                renderInput={(params) => <TextField {...params} label="Project ID" />}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip key={index} label={option} color="primary" {...getTagProps({ index })} />
+                  ))
+                }
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                label="Account ID"
+              <Autocomplete
+                options={accountIds}
                 value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
+                onChange={(event, newValue) => setAccountId(newValue)}
+                renderInput={(params) => <TextField {...params} label="Account ID" />}
               />
             </Grid>
             <Grid item xs={12}>
