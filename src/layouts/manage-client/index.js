@@ -63,6 +63,8 @@ const ManageClient = () => {
   const [industry, setIndustry] = useState("");
   const [contractStartDate, setContractStartDate] = useState("");
   const [contractEndDate, setContractEndDate] = useState("");
+  // NEW: Contract Amount field state
+  const [contractAmount, setContractAmount] = useState("");
   const [cac, setCac] = useState("");
   const [cltv, setCltv] = useState("");
   const [revenueGenerated, setRevenueGenerated] = useState("");
@@ -115,6 +117,8 @@ const ManageClient = () => {
         ? client.contractEndDate.toDate().toISOString().substring(0, 10)
         : client.contractEndDate || ""
     );
+    // Load the contract amount if available
+    setContractAmount(client.contractAmount || "");
     setCac(client.Metrics?.cac || "");
     setCltv(client.Metrics?.cltv || "");
     setRevenueGenerated(client.Metrics?.revenueGenerated || "");
@@ -141,6 +145,8 @@ const ManageClient = () => {
       contractId: editingClient ? editingClient.contractId : generateContractId(), // Only generate new contract ID if adding a new client
       contractStartDate,
       contractEndDate,
+      // NEW: Include contractAmount in the client object
+      contractAmount,
       Metrics: {
         cac,
         cltv,
@@ -181,6 +187,8 @@ const ManageClient = () => {
     setIndustry("");
     setContractStartDate("");
     setContractEndDate("");
+    // Reset the new contract amount field
+    setContractAmount("");
     setCac("");
     setCltv("");
     setRevenueGenerated("");
@@ -278,6 +286,10 @@ const ManageClient = () => {
                             {client.contractEndDate
                               ? formatTimestamp(client.contractEndDate)
                               : "Ongoing"}
+                          </MDTypography>
+                          {/* New field: Contract Amount */}
+                          <MDTypography variant="body2" color="textSecondary">
+                            <strong>Contract Amount:</strong> ${client.contractAmount || "N/A"}
                           </MDTypography>
                           <MDTypography variant="body2" color="textSecondary">
                             <strong>Status:</strong>{" "}
@@ -406,6 +418,19 @@ const ManageClient = () => {
                 value={contractEndDate}
                 onChange={(e) => setContractEndDate(e.target.value)}
                 InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            {/* New Contract Amount Field */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Contract Amount"
+                value={contractAmount}
+                onChange={(e) => setContractAmount(e.target.value)}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                }}
               />
             </Grid>
             <Grid item xs={12} md={4}>

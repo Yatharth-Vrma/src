@@ -16,6 +16,10 @@ import {
   Box,
   Chip,
   Autocomplete,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { db } from "../manage-employee/firebase";
 import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
@@ -23,11 +27,21 @@ import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 import MDButton from "components/MDButton";
 import Icon from "@mui/material/Icon";
-import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-// Expense categories
-const categories = ["Rent", "Software Licenses", "Utilities", "Salaries", "Marketing", "Other"];
+// Expense categories (Added "Account" to the list)
+const categories = [
+  "Rent",
+  "Software Licenses",
+  "Utilities",
+  "Salaries",
+  "Marketing",
+  "Other",
+  "Project",
+  "Account",
+];
 
 const ManageExpenses = () => {
   // Dialog and data states
@@ -52,7 +66,8 @@ const ManageExpenses = () => {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
-  const [projectId, setProjectId] = useState([]);
+  // Project and Account are now single selections
+  const [projectId, setProjectId] = useState("");
   const [accountId, setAccountId] = useState("");
   const [recurring, setRecurring] = useState(false);
 
@@ -169,7 +184,7 @@ const ManageExpenses = () => {
         : expense.date || ""
     );
     setDescription(expense.description);
-    setProjectId(expense.projectId || []);
+    setProjectId(expense.projectId || "");
     setAccountId(expense.accountId || "");
     setRecurring(expense.recurring || false);
     setOpen(true);
@@ -232,340 +247,370 @@ const ManageExpenses = () => {
     setAmount("");
     setDate("");
     setDescription("");
-    setProjectId([]);
+    setProjectId("");
     setAccountId("");
     setRecurring(false);
     setEditingExpense(null);
   };
 
   return (
-    <MDBox
-      p={3}
-      sx={{
-        marginLeft: "250px",
-        marginTop: "30px",
-        width: "calc(100% - 250px)",
-      }}
-    >
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Card
-            sx={{
-              marginTop: "20px",
-              borderRadius: "12px",
-              overflow: "visible",
-            }}
-          >
-            <MDBox
-              mx={0}
-              mt={-4.5}
-              py={3}
-              px={3}
-              variant="gradient"
-              bgColor="info"
-              borderRadius="lg"
-              coloredShadow="info"
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <MDBox
+        p={3}
+        sx={{
+          marginLeft: "250px",
+          marginTop: "30px",
+          width: "calc(100% - 250px)",
+        }}
+      >
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card
+              sx={{
+                marginTop: "20px",
+                borderRadius: "12px",
+                overflow: "visible",
+              }}
             >
-              <MDTypography variant="h6" color="white">
-                Expense Management
-              </MDTypography>
-            </MDBox>
-            <MDBox
-              pt={3}
-              pb={2}
-              px={2}
-              display="flex"
-              alignItems="center"
-              gap={2}
-              justifyContent="space-between"
-            >
-              <Box display="flex" gap={2}>
-                <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
-                  Add expenses
-                </Button>
-                <TextField
-                  label="Search by Category"
-                  variant="outlined"
-                  size="small"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  sx={{
-                    maxWidth: 300,
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: "8px",
-                      backgroundColor: "#fff",
-                    },
-                  }}
-                />
-              </Box>
-
-              {/* New Date Filter Section */}
-              <Box display="flex" gap={2} alignItems="center">
-                <FormControl
-                  variant="outlined"
-                  size={"small"}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      fontSize: "1rem",
-                      padding: "12px 35px",
-                    },
-                    "& .MuiInputLabel-root": {
-                      fontSize: "0.9rem",
-                    },
-                  }}
-                >
-                  <InputLabel>Date Filter</InputLabel>
-                  <Select
-                    value={dateFilterType}
-                    onChange={(e) => setDateFilterType(e.target.value)}
-                    label="Date Filter"
-                  >
-                    <MenuItem value="all">All Dates</MenuItem>
-                    <MenuItem value="today">Today</MenuItem>
-                    <MenuItem value="week">This Week</MenuItem>
-                    <MenuItem value="month">This Month</MenuItem>
-                    <MenuItem value="3months">Last 3 Months</MenuItem>
-                    <MenuItem value="year">This Year</MenuItem>
-                    <MenuItem value="custom">Custom Range</MenuItem>
-                  </Select>
-                </FormControl>
-
-                {dateFilterType === "custom" && (
-                  <Button
-                    variant="outlined"
-                    onClick={() => setDatePickerOpen(true)}
-                    sx={{ height: 40 }}
-                  >
-                    Choose Dates
+              <MDBox
+                mx={0}
+                mt={-4.5}
+                py={3}
+                px={3}
+                variant="gradient"
+                bgColor="info"
+                borderRadius="lg"
+                coloredShadow="info"
+              >
+                <MDTypography variant="h6" color="white">
+                  Expense Management
+                </MDTypography>
+              </MDBox>
+              <MDBox
+                pt={3}
+                pb={2}
+                px={2}
+                display="flex"
+                alignItems="center"
+                gap={2}
+                justifyContent="space-between"
+              >
+                <Box display="flex" gap={2}>
+                  <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
+                    Add expenses
                   </Button>
-                )}
-              </Box>
-            </MDBox>
-
-            <Dialog open={datePickerOpen} onClose={() => setDatePickerOpen(false)}>
-              <DialogTitle>Select Date Range</DialogTitle>
-              <DialogContent sx={{ p: 3, display: "flex", flexDirection: "column", gap: 2 }}>
-                <DatePicker
-                  label="Start Date"
-                  value={customStartDate}
-                  onChange={(newValue) => setCustomStartDate(newValue)}
-                  renderInput={(params) => <TextField {...params} />}
-                />
-                <DatePicker
-                  label="End Date"
-                  value={customEndDate}
-                  onChange={(newValue) => setCustomEndDate(newValue)}
-                  renderInput={(params) => <TextField {...params} />}
-                />
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setDatePickerOpen(false)}>Cancel</Button>
-                <Button onClick={() => setDatePickerOpen(false)}>Apply</Button>
-              </DialogActions>
-            </Dialog>
-
-            {/* Expense Cards Grid */}
-            <Grid container spacing={3} sx={{ padding: "16px" }}>
-              {filteredExpenses.map((expense) => (
-                <Grid item xs={12} md={12} key={expense.id}>
-                  <Card
+                  <TextField
+                    label="Search by Category"
+                    variant="outlined"
+                    size="small"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     sx={{
-                      background: "linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%)",
-                      borderRadius: "12px",
-                      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-                      padding: "20px",
-                      transition: "0.3s ease-in-out",
-                      "&:hover": {
-                        boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)",
-                        transform: "scale(1.02)",
+                      maxWidth: 300,
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                        backgroundColor: "#fff",
+                      },
+                    }}
+                  />
+                </Box>
+
+                {/* New Date Filter Section */}
+                <Box display="flex" gap={2} alignItems="center">
+                  <FormControl
+                    variant="outlined"
+                    size={"small"}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        fontSize: "1rem",
+                        padding: "12px 35px",
+                      },
+                      "& .MuiInputLabel-root": {
+                        fontSize: "0.9rem",
                       },
                     }}
                   >
-                    <CardContent>
-                      <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-                        {Array.isArray(expense.category) &&
-                          expense.category.map((cat, index) => (
-                            <Chip key={index} label={cat} color="primary" />
-                          ))}
-                      </Box>
+                    <InputLabel>Date Filter</InputLabel>
+                    <Select
+                      value={dateFilterType}
+                      onChange={(e) => setDateFilterType(e.target.value)}
+                      label="Date Filter"
+                    >
+                      <MenuItem value="all">All Dates</MenuItem>
+                      <MenuItem value="today">Today</MenuItem>
+                      <MenuItem value="week">This Week</MenuItem>
+                      <MenuItem value="month">This Month</MenuItem>
+                      <MenuItem value="3months">Last 3 Months</MenuItem>
+                      <MenuItem value="year">This Year</MenuItem>
+                      <MenuItem value="custom">Custom Range</MenuItem>
+                    </Select>
+                  </FormControl>
 
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <MDTypography variant="body2" color="textSecondary">
-                            <strong>Expense ID:</strong> {expense.expenseId}
-                          </MDTypography>
-                          <MDTypography variant="body2" color="textSecondary">
-                            <strong>Amount:</strong> ${expense.amount}
-                          </MDTypography>
-                          <MDTypography variant="body2" color="textSecondary">
-                            <strong>Date:</strong>{" "}
-                            {expense.date?.toDate
-                              ? expense.date.toDate().toLocaleDateString()
-                              : new Date(expense.date).toLocaleDateString()}
-                          </MDTypography>
-                        </Grid>
+                  {dateFilterType === "custom" && (
+                    <Button
+                      variant="outlined"
+                      onClick={() => setDatePickerOpen(true)}
+                      sx={{ height: 40 }}
+                    >
+                      Choose Dates
+                    </Button>
+                  )}
+                </Box>
+              </MDBox>
 
-                        <Grid item xs={12} md={6}>
-                          <MDTypography variant="body2" color="textSecondary">
-                            <strong>Description:</strong> {expense.description}
-                          </MDTypography>
-                          <MDTypography variant="body2" color="textSecondary">
-                            <strong>Project ID:</strong> {expense.projectId || "N/A"}
-                          </MDTypography>
-                          <MDTypography variant="body2" color="textSecondary">
-                            <strong>Account ID:</strong> {expense.accountId || "N/A"}
-                          </MDTypography>
-                          <MDTypography variant="body2" color="textSecondary">
-                            <strong>Recurring:</strong>{" "}
-                            <Chip label={expense.recurring ? "Yes" : "No"} size="small" />
-                          </MDTypography>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                    <CardActions sx={{ display: "flex", justifyContent: "flex-end" }}>
-                      <MDButton
-                        variant="text"
-                        onClick={() => handleEdit(expense)}
-                        sx={{
-                          background:
-                            "linear-gradient(100% 100% at 100% 0, #5adaff 0, #5468ff 100%)",
-                          color: "#000",
-                          fontWeight: "bold",
-                          borderRadius: "8px",
-                          padding: "12px 24px",
-                        }}
-                      >
-                        <Icon fontSize="medium">edit</Icon>&nbsp;Edit
-                      </MDButton>
-                      <MDButton
-                        variant="text"
-                        color="error"
-                        onClick={() => {
-                          setDeleteId(expense.id);
-                          setConfirmDeleteOpen(true);
-                        }}
-                        sx={{ ml: 1, padding: "12px 24px" }}
-                      >
-                        <Icon fontSize="medium">delete</Icon>&nbsp;Delete
-                      </MDButton>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Expense Form Dialog */}
-      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle>{editingExpense ? "Edit Expense" : "Add Expense"}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Autocomplete
-                multiple
-                options={categories}
-                value={category}
-                onChange={(event, newValue) => setCategory(newValue)}
-                renderInput={(params) => <TextField {...params} label="Category" />}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip key={index} label={option} color="primary" {...getTagProps({ index })} />
-                  ))
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                type="number"
-                label="Amount"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                type="date"
-                label="Date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Autocomplete
-                multiple
-                options={projectIds}
-                value={projectId}
-                onChange={(event, newValue) => setProjectId(newValue)}
-                renderInput={(params) => <TextField {...params} label="Project ID" />}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip key={index} label={option} color="primary" {...getTagProps({ index })} />
-                  ))
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Autocomplete
-                options={accountIds}
-                value={accountId}
-                onChange={(event, newValue) => setAccountId(newValue)}
-                renderInput={(params) => <TextField {...params} label="Account ID" />}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={recurring}
-                    onChange={(e) => setRecurring(e.target.checked)}
-                    color="primary"
+              <Dialog open={datePickerOpen} onClose={() => setDatePickerOpen(false)}>
+                <DialogTitle>Select Date Range</DialogTitle>
+                <DialogContent sx={{ p: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+                  <DatePicker
+                    label="Start Date"
+                    value={customStartDate}
+                    onChange={(newValue) => setCustomStartDate(newValue)}
+                    renderInput={(params) => <TextField {...params} />}
                   />
-                }
-                label="Recurring Expense"
-              />
-            </Grid>
+                  <DatePicker
+                    label="End Date"
+                    value={customEndDate}
+                    onChange={(newValue) => setCustomEndDate(newValue)}
+                    renderInput={(params) => <TextField {...params} />}
+                  />
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setDatePickerOpen(false)}>Cancel</Button>
+                  <Button onClick={() => setDatePickerOpen(false)}>Apply</Button>
+                </DialogActions>
+              </Dialog>
+
+              {/* Expense Cards Grid */}
+              <Grid container spacing={3} sx={{ padding: "16px" }}>
+                {filteredExpenses.map((expense) => (
+                  <Grid item xs={12} md={12} key={expense.id}>
+                    <Card
+                      sx={{
+                        background: "linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%)",
+                        borderRadius: "12px",
+                        boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                        padding: "20px",
+                        transition: "0.3s ease-in-out",
+                        "&:hover": {
+                          boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)",
+                          transform: "scale(1.02)",
+                        },
+                      }}
+                    >
+                      <CardContent>
+                        <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+                          {Array.isArray(expense.category) &&
+                            expense.category.map((cat, index) => (
+                              <Chip key={index} label={cat} color="primary" />
+                            ))}
+                        </Box>
+
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={6}>
+                            <MDTypography variant="body2" color="textSecondary">
+                              <strong>Expense ID:</strong> {expense.expenseId}
+                            </MDTypography>
+                            <MDTypography variant="body2" color="textSecondary">
+                              <strong>Amount:</strong> ${expense.amount}
+                            </MDTypography>
+                            <MDTypography variant="body2" color="textSecondary">
+                              <strong>Date:</strong>{" "}
+                              {expense.date?.toDate
+                                ? expense.date.toDate().toLocaleDateString()
+                                : new Date(expense.date).toLocaleDateString()}
+                            </MDTypography>
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <MDTypography variant="body2" color="textSecondary">
+                              <strong>Description:</strong> {expense.description}
+                            </MDTypography>
+                            <MDTypography variant="body2" color="textSecondary">
+                              <strong>Project ID:</strong> {expense.projectId || "N/A"}
+                            </MDTypography>
+                            <MDTypography variant="body2" color="textSecondary">
+                              <strong>Account ID:</strong> {expense.accountId || "N/A"}
+                            </MDTypography>
+                            <MDTypography variant="body2" color="textSecondary">
+                              <strong>Recurring:</strong>{" "}
+                              <Chip label={expense.recurring ? "Yes" : "No"} size="small" />
+                            </MDTypography>
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                      <CardActions sx={{ display: "flex", justifyContent: "flex-end" }}>
+                        <MDButton
+                          variant="text"
+                          onClick={() => handleEdit(expense)}
+                          sx={{
+                            background:
+                              "linear-gradient(100% 100% at 100% 0, #5adaff 0, #5468ff 100%)",
+                            color: "#000",
+                            fontWeight: "bold",
+                            borderRadius: "8px",
+                            padding: "12px 24px",
+                          }}
+                        >
+                          <Icon fontSize="medium">edit</Icon>&nbsp;Edit
+                        </MDButton>
+                        <MDButton
+                          variant="text"
+                          color="error"
+                          onClick={() => {
+                            setDeleteId(expense.id);
+                            setConfirmDeleteOpen(true);
+                          }}
+                          sx={{ ml: 1, padding: "12px 24px" }}
+                        >
+                          <Icon fontSize="medium">delete</Icon>&nbsp;Delete
+                        </MDButton>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Card>
           </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Grid>
 
-      {/* Confirm Delete Dialog */}
-      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
-        <DialogTitle>Want to delete expense data?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* Expense Form Dialog */}
+        <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+          <DialogTitle>{editingExpense ? "Edit Expense" : "Add Expense"}</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Autocomplete
+                  multiple
+                  options={categories}
+                  value={category}
+                  onChange={(event, newValue) => setCategory(newValue)}
+                  renderInput={(params) => <TextField {...params} label="Category" />}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip
+                        key={index}
+                        label={option}
+                        color="primary"
+                        {...getTagProps({ index })}
+                      />
+                    ))
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  type="number"
+                  label="Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  type="date"
+                  label="Date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </Grid>
 
-      {/* Confirm Update Dialog */}
-      <Dialog open={confirmUpdateOpen} onClose={() => setConfirmUpdateOpen(false)}>
-        <DialogTitle>Want to save details?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setConfirmUpdateOpen(false)}>Cancel</Button>
-          <Button onClick={confirmUpdate} color="primary">
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </MDBox>
+              {/* Conditionally render the Project dropdown if "Project" is selected */}
+              {category.includes("Project") && (
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="project-select-label">Project</InputLabel>
+                    <Select
+                      labelId="project-select-label"
+                      id="project-select"
+                      value={projectId}
+                      label="Project"
+                      onChange={(e) => setProjectId(e.target.value)}
+                    >
+                      {projectIds.map((proj, index) => (
+                        <MenuItem key={index} value={proj}>
+                          {proj}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+
+              {/* Conditionally render the Account dropdown if "Account" is selected */}
+              {category.includes("Account") && (
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="account-select-label">Account</InputLabel>
+                    <Select
+                      labelId="account-select-label"
+                      id="account-select"
+                      value={accountId}
+                      label="Account"
+                      onChange={(e) => setAccountId(e.target.value)}
+                    >
+                      {accountIds.map((acc, index) => (
+                        <MenuItem key={index} value={acc}>
+                          {acc}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={recurring}
+                      onChange={(e) => setRecurring(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label="Recurring Expense"
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClose}>Cancel</Button>
+            <Button onClick={handleSubmit} color="primary">
+              Save
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Delete Dialog */}
+        <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
+          <DialogTitle>Want to delete expense data?</DialogTitle>
+          <DialogActions>
+            <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
+            <Button onClick={handleDelete} color="error">
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Update Dialog */}
+        <Dialog open={confirmUpdateOpen} onClose={() => setConfirmUpdateOpen(false)}>
+          <DialogTitle>Want to save details?</DialogTitle>
+          <DialogActions>
+            <Button onClick={() => setConfirmUpdateOpen(false)}>Cancel</Button>
+            <Button onClick={confirmUpdate} color="primary">
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </MDBox>
+    </LocalizationProvider>
   );
 };
 

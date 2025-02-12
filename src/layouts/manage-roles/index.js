@@ -37,7 +37,6 @@ const generateRoleId = () => {
 
 console.log(generateRoleId()); // Example output: Role-345
 
-
 const ManageRoles = () => {
   const [open, setOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -260,7 +259,7 @@ const ManageRoles = () => {
                         </Grid>
                       </CardContent>
 
-                    <CardActions sx={{ display: "flex", justifyContent: "flex-end" }}>
+                      <CardActions sx={{ display: "flex", justifyContent: "flex-end" }}>
                         <MDButton
                           variant="text"
                           onClick={() => handleEdit(role)}

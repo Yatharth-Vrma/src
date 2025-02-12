@@ -20,7 +20,18 @@ import MDTypography from "components/MDTypography";
 import MDProgress from "components/MDProgress";
 import DataTable from "examples/Tables/DataTable";
 import { db } from "../manage-employee/firebase";
-import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  getDoc,
+  doc,
+  deleteDoc,
+  updateDoc,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 
 // Define available statuses for projects
 const statuses = ["Ongoing", "Completed", "On Hold"];
@@ -87,14 +98,12 @@ const Progress = ({ value, status }) => {
   );
 };
 
-// Add prop types for Progress component
 Progress.propTypes = {
   value: PropTypes.number.isRequired,
   status: PropTypes.string.isRequired,
 };
 
-// The Project component used inside the table for the "project" column.
-// It displays the project name with the project ID on a new line.
+// The ProjectInfo component used inside the table for the "project" column.
 const ProjectInfo = ({ name, projectId }) => (
   <MDBox display="flex" alignItems="center" lineHeight={1}>
     <MDBox ml={0} lineHeight={1.2}>
@@ -108,7 +117,6 @@ const ProjectInfo = ({ name, projectId }) => (
   </MDBox>
 );
 
-// Add prop types for ProjectInfo component
 ProjectInfo.propTypes = {
   name: PropTypes.string.isRequired,
   projectId: PropTypes.string.isRequired,
@@ -133,11 +141,16 @@ const ManageProject = () => {
   const [invalidClientId, setInvalidClientId] = useState(false);
   const [invalidAccountId, setInvalidAccountId] = useState(false);
 
-  // Form states
+  // NEW: State to hold the total expenses for the currently viewed project
+  const [projectExpenses, setProjectExpenses] = useState(0);
+  // NEW: State to hold the total earnings (revenue) for the currently viewed project
+  const [projectRevenue, setProjectRevenue] = useState(0);
+
+  // Form states (removed the "expenses" field)
   const [name, setName] = useState("");
   const [team, setTeam] = useState("");
   const [budget, setBudget] = useState("");
-  const [expenses, setExpenses] = useState("");
+  // Removed expenses field since expenses will be fetched dynamically
   const [roi, setRoi] = useState("");
   const [burnRate, setBurnRate] = useState("");
   const [profitMargin, setProfitMargin] = useState("");
@@ -174,6 +187,51 @@ const ManageProject = () => {
     fetchAccounts();
   }, []);
 
+  // Whenever a project is selected for viewing details, fetch its expenses from the "expenses" collection
+  useEffect(() => {
+    const fetchProjectExpenses = async () => {
+      if (selectedProject && (selectedProject.projectId || selectedProject.id)) {
+        // Use projectId field if it exists; otherwise, fallback to document id.
+        const pid = selectedProject.projectId || selectedProject.id;
+        const q = query(collection(db, "expenses"), where("projectId", "==", pid));
+        const querySnapshot = await getDocs(q);
+        let total = 0;
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          total += Number(data.amount) || 0;
+        });
+        setProjectExpenses(total);
+      } else {
+        setProjectExpenses(0);
+      }
+    };
+    fetchProjectExpenses();
+  }, [selectedProject]);
+
+  // Whenever a project is selected for viewing details, listen to its earnings (revenue) in realtime.
+  // Here we query only earnings with category "Project Revenue" and with a referenceId that matches the project.
+  useEffect(() => {
+    if (selectedProject && (selectedProject.projectId || selectedProject.id)) {
+      const pid = selectedProject.projectId || selectedProject.id;
+      const earningsQuery = query(
+        collection(db, "earnings"),
+        where("category", "==", "Project Revenue"),
+        where("referenceId", "==", pid)
+      );
+      const unsubscribe = onSnapshot(earningsQuery, (snapshot) => {
+        let totalRevenue = 0;
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          totalRevenue += Number(data.amount) || 0;
+        });
+        setProjectRevenue(totalRevenue);
+      });
+      return () => unsubscribe();
+    } else {
+      setProjectRevenue(0);
+    }
+  }, [selectedProject]);
+
   // Opens the Add/Edit form dialog and resets form fields
   const handleClickOpen = () => {
     setOpen(true);
@@ -186,9 +244,15 @@ const ManageProject = () => {
     resetForm();
   };
 
-  // Opens the Project Details dialog
-  const handleViewDetails = (project) => {
-    setSelectedProject(project);
+  // When a project row is clicked, re-fetch the project details from Firestore and then open the details dialog
+  const handleViewDetails = async (project) => {
+    const projectRef = doc(db, "projects", project.id);
+    const projectSnap = await getDoc(projectRef);
+    if (projectSnap.exists()) {
+      setSelectedProject({ id: projectSnap.id, ...projectSnap.data() });
+    } else {
+      setSelectedProject(project);
+    }
     setViewDetailsOpen(true);
   };
 
@@ -200,7 +264,7 @@ const ManageProject = () => {
     setName(project.name);
     setTeam(project.team);
     setBudget(project.financialMetrics?.budget || "");
-    setExpenses(project.financialMetrics?.expenses || "");
+    // Removed expenses field since we are now fetching expenses from Firestore
     setRoi(project.financialMetrics?.roi || "");
     setBurnRate(project.financialMetrics?.burnRate || "");
     setProfitMargin(project.financialMetrics?.profitMargin || "");
@@ -232,8 +296,8 @@ const ManageProject = () => {
       return;
     }
 
-    // Calculate revenue based on budget and expenses
-    const calculatedRevenue = calculateRevenue(budget, expenses);
+    // Calculate revenue based on budget and (expenses from Firestore will be used, so we rely on the fetched data)
+    const calculatedRevenue = calculateRevenue(budget, 0); // Second parameter is 0 because expenses are no longer input
     setRevenueGenerated(calculatedRevenue);
 
     setConfirmUpdateOpen(true);
@@ -245,30 +309,30 @@ const ManageProject = () => {
     return querySnapshot.docs.some((doc) => doc.data().clientId === clientId);
   };
 
+  // Check if Account ID exists in Firebase
   const checkIfAccountExists = async (accountId) => {
     const querySnapshot = await getDocs(collection(db, "accounts"));
     return querySnapshot.docs.some((doc) => doc.data().accountId === accountId);
   };
 
-  // Calculate revenue based on budget and expenses
-  const calculateRevenue = (budget, expenses) => {
+  // Calculate revenue based on budget and expenses (expenses input is removed, so only budget is used)
+  const calculateRevenue = (budget, expensesInput) => {
     const budgetValue = parseFloat(budget) || 0;
-    const expensesValue = parseFloat(expenses) || 0;
-    return budgetValue - expensesValue; // Simple calculation for revenue
+    return budgetValue - expensesInput;
   };
 
   // Called once the update confirmation is accepted.
   // It adds a new project or updates an existing one in Firestore.
   const confirmUpdate = async () => {
     let projectId;
-  
+
     // Generate project ID only if it's a new project
     if (!editingProject) {
       projectId = generateUniqueProjectId(name);
     } else {
       projectId = editingProject.projectId; // Use the existing project ID for updates
     }
-  
+
     const newProject = {
       projectId,
       name,
@@ -278,7 +342,6 @@ const ManageProject = () => {
       teamMembers: selectedEmployees,
       financialMetrics: {
         budget,
-        expenses,
         roi,
         burnRate,
         profitMargin,
@@ -291,7 +354,7 @@ const ManageProject = () => {
       description,
       completion,
     };
-  
+
     if (editingProject) {
       await updateDoc(doc(db, "projects", editingProject.id), newProject);
       setProjects(
@@ -301,15 +364,15 @@ const ManageProject = () => {
       const docRef = await addDoc(collection(db, "projects"), newProject);
       setProjects([...projects, { id: docRef.id, ...newProject }]);
     }
-  
+
     setConfirmUpdateOpen(false);
     handleClose();
   };
-  
+
   const generateUniqueProjectId = (name) => {
     let projectId;
     let isUnique = false;
-  
+
     while (!isUnique) {
       const prefix = name
         .split(" ")
@@ -317,14 +380,14 @@ const ManageProject = () => {
         .join("");
       const randomNumber = Math.floor(Math.random() * 1000);
       projectId = `${prefix}-${randomNumber}`;
-  
+
       // Check if the generated project ID already exists
       isUnique = !projects.some((project) => project.projectId === projectId);
     }
-  
+
     return projectId;
   };
-  
+
   // Handles deletion of a project from Firestore
   const handleDelete = async () => {
     await deleteDoc(doc(db, "projects", deleteId));
@@ -338,7 +401,6 @@ const ManageProject = () => {
     setName("");
     setTeam("");
     setBudget("");
-    setExpenses("");
     setRoi("");
     setBurnRate("");
     setProfitMargin("");
@@ -351,8 +413,8 @@ const ManageProject = () => {
     setCompletion("");
     setSelectedEmployees([]);
     setEditingProject(null);
-    setSelectedClient(null); // Reset selected client
-    setSelectedAccount(null); // Reset selected account
+    setSelectedClient(null);
+    setSelectedAccount(null);
     setInvalidClientId(false);
     setInvalidAccountId(false);
   };
@@ -462,98 +524,102 @@ const ManageProject = () => {
         fullWidth
       >
         <DialogTitle>Project Details</DialogTitle>
-        
         <DialogContent>
-  {selectedProject && (
-    <Grid container spacing={2} sx={{ mt: 1 }}>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Project ID</Typography>
-        <Typography>{selectedProject.projectId || "N/A"}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Name</Typography>
-        <Typography>{selectedProject.name || "N/A"}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Account ID</Typography>
-        <Typography>{selectedProject.accountId?.accountId || selectedProject.accountId || "N/A"}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Client ID</Typography>
-        <Typography>{selectedProject.clientId?.clientId || selectedProject.clientId || "N/A"}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Team</Typography>
-        <Typography>
-          {Array.isArray(selectedProject.team)
-            ? selectedProject.team.join(", ") // Convert array to comma-separated string
-            : typeof selectedProject.team === "object"
-            ? JSON.stringify(selectedProject.team) // Convert object to string
-            : selectedProject.team || "N/A"}
-        </Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Budget</Typography>
-        <Typography>${selectedProject.financialMetrics?.budget || 0}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Expenses</Typography>
-        <Typography>${selectedProject.financialMetrics?.expenses || 0}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">ROI (%)</Typography>
-        <Typography>{selectedProject.financialMetrics?.roi || 0}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Burn Rate</Typography>
-        <Typography>{selectedProject.financialMetrics?.burnRate || 0}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Profit Margin (%)</Typography>
-        <Typography>{selectedProject.financialMetrics?.profitMargin || 0}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Revenue Generated</Typography>
-        <Typography>{selectedProject.financialMetrics?.revenueGenerated || 0}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Expected Revenue</Typography>
-        <Typography>{selectedProject.financialMetrics?.expectedRevenue || 0}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Start Date</Typography>
-        <Typography>
-          {selectedProject.startDate
-            ? new Date(selectedProject.startDate).toLocaleDateString()
-            : "N/A"}
-        </Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">End Date</Typography>
-        <Typography>
-          {selectedProject.endDate
-            ? new Date(selectedProject.endDate).toLocaleDateString()
-            : "Ongoing"}
-        </Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Status</Typography>
-        <Typography>{selectedProject.status || "N/A"}</Typography>
-      </Grid>
-      <Grid item xs={6}>
-        <Typography variant="subtitle2">Completion (%)</Typography>
-        <Typography>
-          {selectedProject.completion !== undefined ? `${selectedProject.completion}%` : "N/A"}
-        </Typography>
-      </Grid>
-      <Grid item xs={12}>
-        <Typography variant="subtitle2">Description</Typography>
-        <Typography>{selectedProject.description || "No description available"}</Typography>
-      </Grid>
-    </Grid>
-  )}
-</DialogContent>
-
+          {selectedProject && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Project ID</Typography>
+                <Typography>{selectedProject.projectId || selectedProject.id || "N/A"}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Name</Typography>
+                <Typography>{selectedProject.name || "N/A"}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Account ID</Typography>
+                <Typography>
+                  {selectedProject.accountId?.accountId || selectedProject.accountId || "N/A"}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Client ID</Typography>
+                <Typography>
+                  {selectedProject.clientId?.clientId || selectedProject.clientId || "N/A"}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Team</Typography>
+                <Typography>
+                  {Array.isArray(selectedProject.team)
+                    ? selectedProject.team.join(", ")
+                    : typeof selectedProject.team === "object"
+                    ? JSON.stringify(selectedProject.team)
+                    : selectedProject.team || "N/A"}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Budget</Typography>
+                <Typography>${selectedProject.financialMetrics?.budget || 0}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Expenses</Typography>
+                <Typography>${projectExpenses}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">ROI (%)</Typography>
+                <Typography>{selectedProject.financialMetrics?.roi || 0}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Burn Rate</Typography>
+                <Typography>{selectedProject.financialMetrics?.burnRate || 0}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Profit Margin (%)</Typography>
+                <Typography>{selectedProject.financialMetrics?.profitMargin || 0}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Revenue Generated</Typography>
+                <Typography>${projectRevenue}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Expected Revenue</Typography>
+                <Typography>{selectedProject.financialMetrics?.expectedRevenue || 0}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Start Date</Typography>
+                <Typography>
+                  {selectedProject.startDate
+                    ? new Date(selectedProject.startDate).toLocaleDateString()
+                    : "N/A"}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">End Date</Typography>
+                <Typography>
+                  {selectedProject.endDate
+                    ? new Date(selectedProject.endDate).toLocaleDateString()
+                    : "Ongoing"}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Status</Typography>
+                <Typography>{selectedProject.status || "N/A"}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Completion (%)</Typography>
+                <Typography>
+                  {selectedProject.completion !== undefined
+                    ? `${selectedProject.completion}%`
+                    : "N/A"}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2">Description</Typography>
+                <Typography>{selectedProject.description || "No description available"}</Typography>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewDetailsOpen(false)}>Close</Button>
           <Button onClick={handleEditFromDetails} color="primary">
@@ -587,7 +653,7 @@ const ManageProject = () => {
             <Grid item xs={12}>
               <Autocomplete
                 options={clients}
-                getOptionLabel={(option) => option.clientId} // Assuming clientId is the field you want to display
+                getOptionLabel={(option) => option.clientId} // Adjust according to your data structure
                 value={selectedClient}
                 onChange={(event, newValue) => setSelectedClient(newValue)}
                 renderInput={(params) => (
@@ -598,7 +664,7 @@ const ManageProject = () => {
             <Grid item xs={12}>
               <Autocomplete
                 options={accounts}
-                getOptionLabel={(option) => option.accountId} // Assuming accountId is the field you want to display
+                getOptionLabel={(option) => option.accountId} // Adjust according to your data structure
                 value={selectedAccount}
                 onChange={(event, newValue) => setSelectedAccount(newValue)}
                 renderInput={(params) => (
@@ -631,14 +697,7 @@ const ManageProject = () => {
                 onChange={(e) => setBudget(e.target.value)}
               />
             </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Expenses"
-                value={expenses}
-                onChange={(e) => setExpenses(e.target.value)}
-              />
-            </Grid>
+            {/* Removed the "Expenses" field from the form */}
             <Grid item xs={6}>
               <TextField
                 fullWidth
