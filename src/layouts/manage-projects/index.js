@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import PropTypes from "prop-types"; // Import PropTypes
+import PropTypes from "prop-types";
 import {
   Button,
   Dialog,
@@ -15,6 +15,7 @@ import {
   Box,
   Autocomplete,
 } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 import MDProgress from "components/MDProgress";
@@ -33,11 +34,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 
-// Define available statuses for projects
 const statuses = ["Ongoing", "Completed", "On Hold"];
-
-// Custom styled button component (used in the table action)
-import { styled } from "@mui/material/styles";
 
 const CustomButton = styled("button")({
   padding: "10px 25px",
@@ -73,7 +70,6 @@ const CustomButton = styled("button")({
   },
 });
 
-// The Progress component shows the project's completion percentage with a progress bar
 const Progress = ({ value, status }) => {
   const getColor = () => {
     switch (status) {
@@ -103,7 +99,6 @@ Progress.propTypes = {
   status: PropTypes.string.isRequired,
 };
 
-// The ProjectInfo component used inside the table for the "project" column.
 const ProjectInfo = ({ name, projectId }) => (
   <MDBox display="flex" alignItems="center" lineHeight={1}>
     <MDBox ml={0} lineHeight={1.2}>
@@ -123,9 +118,8 @@ ProjectInfo.propTypes = {
 };
 
 const ManageProject = () => {
-  // Dialog and state declarations
-  const [open, setOpen] = useState(false); // For add/edit form dialog
-  const [viewDetailsOpen, setViewDetailsOpen] = useState(false); // For project details dialog
+  const [open, setOpen] = useState(false);
+  const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -133,24 +127,19 @@ const ManageProject = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [employees, setEmployees] = useState([]);
-  const [clients, setClients] = useState([]); // State for clients
-  const [accounts, setAccounts] = useState([]); // State for accounts
+  const [clients, setClients] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
-  const [selectedClient, setSelectedClient] = useState(null); // State for selected client
-  const [selectedAccount, setSelectedAccount] = useState(null); // State for selected account
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState(null);
   const [invalidClientId, setInvalidClientId] = useState(false);
   const [invalidAccountId, setInvalidAccountId] = useState(false);
-
-  // NEW: State to hold the total expenses for the currently viewed project
   const [projectExpenses, setProjectExpenses] = useState(0);
-  // NEW: State to hold the total earnings (revenue) for the currently viewed project
   const [projectRevenue, setProjectRevenue] = useState(0);
 
-  // Form states (removed the "expenses" field)
   const [name, setName] = useState("");
   const [team, setTeam] = useState("");
   const [budget, setBudget] = useState("");
-  // Removed expenses field since expenses will be fetched dynamically
   const [roi, setRoi] = useState("");
   const [burnRate, setBurnRate] = useState("");
   const [profitMargin, setProfitMargin] = useState("");
@@ -162,7 +151,6 @@ const ManageProject = () => {
   const [description, setDescription] = useState("");
   const [completion, setCompletion] = useState("");
 
-  // Fetch projects, employees, clients, and accounts from Firestore on component mount
   useEffect(() => {
     const fetchProjects = async () => {
       const querySnapshot = await getDocs(collection(db, "projects"));
@@ -187,11 +175,9 @@ const ManageProject = () => {
     fetchAccounts();
   }, []);
 
-  // Whenever a project is selected for viewing details, fetch its expenses from the "expenses" collection
   useEffect(() => {
     const fetchProjectExpenses = async () => {
       if (selectedProject && (selectedProject.projectId || selectedProject.id)) {
-        // Use projectId field if it exists; otherwise, fallback to document id.
         const pid = selectedProject.projectId || selectedProject.id;
         const q = query(collection(db, "expenses"), where("projectId", "==", pid));
         const querySnapshot = await getDocs(q);
@@ -208,8 +194,6 @@ const ManageProject = () => {
     fetchProjectExpenses();
   }, [selectedProject]);
 
-  // Whenever a project is selected for viewing details, listen to its earnings (revenue) in realtime.
-  // Here we query only earnings with category "Project Revenue" and with a referenceId that matches the project.
   useEffect(() => {
     if (selectedProject && (selectedProject.projectId || selectedProject.id)) {
       const pid = selectedProject.projectId || selectedProject.id;
@@ -232,19 +216,16 @@ const ManageProject = () => {
     }
   }, [selectedProject]);
 
-  // Opens the Add/Edit form dialog and resets form fields
   const handleClickOpen = () => {
     setOpen(true);
     resetForm();
   };
 
-  // Closes the Add/Edit form dialog and resets fields
   const handleClose = () => {
     setOpen(false);
     resetForm();
   };
 
-  // When a project row is clicked, re-fetch the project details from Firestore and then open the details dialog
   const handleViewDetails = async (project) => {
     const projectRef = doc(db, "projects", project.id);
     const projectSnap = await getDoc(projectRef);
@@ -256,15 +237,12 @@ const ManageProject = () => {
     setViewDetailsOpen(true);
   };
 
-  // Called when clicking "Edit" from the details dialog.
-  // Populates form fields with the selected project's data.
   const handleEditFromDetails = () => {
     const project = selectedProject;
     setEditingProject(project);
     setName(project.name);
     setTeam(project.team);
     setBudget(project.financialMetrics?.budget || "");
-    // Removed expenses field since we are now fetching expenses from Firestore
     setRoi(project.financialMetrics?.roi || "");
     setBurnRate(project.financialMetrics?.burnRate || "");
     setProfitMargin(project.financialMetrics?.profitMargin || "");
@@ -276,13 +254,12 @@ const ManageProject = () => {
     setDescription(project.description);
     setCompletion(project.completion || "");
     setSelectedEmployees(project.teamMembers || []);
-    setSelectedClient(project.clientId); // Set selected client
-    setSelectedAccount(project.accountId); // Set selected account
+    setSelectedClient(project.clientId);
+    setSelectedAccount(project.accountId);
     setViewDetailsOpen(false);
     setOpen(true);
   };
 
-  // Function to handle project update/add submission; shows confirmation dialog
   const handleSubmit = async () => {
     const clientId = selectedClient?.clientId;
     const accountId = selectedAccount?.accountId;
@@ -296,41 +273,55 @@ const ManageProject = () => {
       return;
     }
 
-    // Calculate revenue based on budget and (expenses from Firestore will be used, so we rely on the fetched data)
-    const calculatedRevenue = calculateRevenue(budget, 0); // Second parameter is 0 because expenses are no longer input
-    setRevenueGenerated(calculatedRevenue);
+    // Fetch expenses for the project
+    const projectId = editingProject ? editingProject.projectId : generateUniqueProjectId(name);
+    const expensesQuery = query(collection(db, "expenses"), where("projectId", "==", projectId));
+    const expensesSnapshot = await getDocs(expensesQuery);
+    let totalExpenses = 0;
+    expensesSnapshot.forEach((doc) => {
+      const data = doc.data();
+      totalExpenses += Number(data.amount) || 0;
+    });
+
+    console.log("Budget:", budget); // Debugging
+    console.log("Total Expenses:", totalExpenses); // Debugging
+
+    // Calculate revenueGenerated and profitMargin
+    const budgetValue = parseFloat(budget) || 0;
+    const calculatedRevenueGenerated = budgetValue - totalExpenses;
+    const calculatedProfitMargin = (calculatedRevenueGenerated / budgetValue) * 100;
+
+    console.log("Calculated Revenue Generated:", calculatedRevenueGenerated); // Debugging
+    console.log("Calculated Profit Margin:", calculatedProfitMargin); // Debugging
+
+    // Update state with calculated values
+    setRevenueGenerated(calculatedRevenueGenerated);
+    setProfitMargin(calculatedProfitMargin);
+
+    // Set the expected revenue based on the profit margin
+    const expectedRevenueValue = (budgetValue / (1 - calculatedProfitMargin / 100)).toFixed(2);
+    setExpectedRevenue(expectedRevenueValue);
 
     setConfirmUpdateOpen(true);
   };
 
-  // Check if Client ID exists in Firebase
   const checkIfClientExists = async (clientId) => {
     const querySnapshot = await getDocs(collection(db, "clients"));
     return querySnapshot.docs.some((doc) => doc.data().clientId === clientId);
   };
 
-  // Check if Account ID exists in Firebase
   const checkIfAccountExists = async (accountId) => {
     const querySnapshot = await getDocs(collection(db, "accounts"));
     return querySnapshot.docs.some((doc) => doc.data().accountId === accountId);
   };
 
-  // Calculate revenue based on budget and expenses (expenses input is removed, so only budget is used)
-  const calculateRevenue = (budget, expensesInput) => {
-    const budgetValue = parseFloat(budget) || 0;
-    return budgetValue - expensesInput;
-  };
-
-  // Called once the update confirmation is accepted.
-  // It adds a new project or updates an existing one in Firestore.
   const confirmUpdate = async () => {
     let projectId;
 
-    // Generate project ID only if it's a new project
     if (!editingProject) {
       projectId = generateUniqueProjectId(name);
     } else {
-      projectId = editingProject.projectId; // Use the existing project ID for updates
+      projectId = editingProject.projectId;
     }
 
     const newProject = {
@@ -381,14 +372,12 @@ const ManageProject = () => {
       const randomNumber = Math.floor(Math.random() * 1000);
       projectId = `${prefix}-${randomNumber}`;
 
-      // Check if the generated project ID already exists
       isUnique = !projects.some((project) => project.projectId === projectId);
     }
 
     return projectId;
   };
 
-  // Handles deletion of a project from Firestore
   const handleDelete = async () => {
     await deleteDoc(doc(db, "projects", deleteId));
     setProjects(projects.filter((proj) => proj.id !== deleteId));
@@ -396,7 +385,6 @@ const ManageProject = () => {
     setViewDetailsOpen(false);
   };
 
-  // Resets all form fields
   const resetForm = () => {
     setName("");
     setTeam("");
@@ -419,8 +407,6 @@ const ManageProject = () => {
     setInvalidAccountId(false);
   };
 
-  // Define tableData for the DataTable component.
-  // The "action" column now shows a custom button to view project details.
   const tableData = {
     columns: [
       { Header: "project", accessor: "project", width: "30%", align: "left" },
@@ -516,7 +502,6 @@ const ManageProject = () => {
         </Grid>
       </Grid>
 
-      {/* Project Details Dialog */}
       <Dialog
         open={viewDetailsOpen}
         onClose={() => setViewDetailsOpen(false)}
@@ -579,7 +564,7 @@ const ManageProject = () => {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2">Revenue Generated</Typography>
-                <Typography>${projectRevenue}</Typography>
+                <Typography>${selectedProject.financialMetrics?.revenueGenerated}</Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2">Expected Revenue</Typography>
@@ -637,7 +622,6 @@ const ManageProject = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Project Form Dialog (Add/Edit) */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>{editingProject ? "Edit Project" : "Add Project"}</DialogTitle>
         <DialogContent>
@@ -653,7 +637,7 @@ const ManageProject = () => {
             <Grid item xs={12}>
               <Autocomplete
                 options={clients}
-                getOptionLabel={(option) => option.clientId} // Adjust according to your data structure
+                getOptionLabel={(option) => option.clientId}
                 value={selectedClient}
                 onChange={(event, newValue) => setSelectedClient(newValue)}
                 renderInput={(params) => (
@@ -664,7 +648,7 @@ const ManageProject = () => {
             <Grid item xs={12}>
               <Autocomplete
                 options={accounts}
-                getOptionLabel={(option) => option.accountId} // Adjust according to your data structure
+                getOptionLabel={(option) => option.accountId}
                 value={selectedAccount}
                 onChange={(event, newValue) => setSelectedAccount(newValue)}
                 renderInput={(params) => (
@@ -697,7 +681,6 @@ const ManageProject = () => {
                 onChange={(e) => setBudget(e.target.value)}
               />
             </Grid>
-            {/* Removed the "Expenses" field from the form */}
             <Grid item xs={6}>
               <TextField
                 fullWidth
@@ -762,7 +745,6 @@ const ManageProject = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Confirm Delete Dialog */}
       <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
         <DialogTitle>Confirm Deletion</DialogTitle>
         <DialogContent>Are you sure you want to delete this project?</DialogContent>
@@ -774,7 +756,6 @@ const ManageProject = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Confirm Update Dialog */}
       <Dialog open={confirmUpdateOpen} onClose={() => setConfirmUpdateOpen(false)}>
         <DialogTitle>Confirm Submission</DialogTitle>
         <DialogContent>Are you sure you want to save this project?</DialogContent>

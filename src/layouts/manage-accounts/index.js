@@ -19,15 +19,7 @@ import {
   Box,
 } from "@mui/material";
 import { db } from "../manage-employee/firebase";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  updateDoc,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, query, where } from "firebase/firestore";
 import MDBox from "components/MDBox";
 import MDButton from "components/MDButton";
 import MDTypography from "components/MDTypography";
@@ -87,10 +79,7 @@ const ManageAccount = () => {
       const expensesMap = {};
       for (const account of accounts) {
         if (account.accountId) {
-          const q = query(
-            collection(db, "expenses"),
-            where("accountId", "==", account.accountId)
-          );
+          const q = query(collection(db, "expenses"), where("accountId", "==", account.accountId));
           const qs = await getDocs(q);
           let total = 0;
           qs.forEach((doc) => {
@@ -141,9 +130,7 @@ const ManageAccount = () => {
       : `ACC-${Math.floor(1000 + Math.random() * 9000)}`;
 
     // For an existing account, use the fetched expense; otherwise, assume 0
-    const currentExpenses = editingAccount
-      ? accountExpenses[editingAccount.accountId] || 0
-      : 0;
+    const currentExpenses = editingAccount ? accountExpenses[editingAccount.accountId] || 0 : 0;
 
     // Compute the aggregated revenue by summing the revenueGenerated from the selected projects.
     // Note: We filter using the project id.
@@ -153,9 +140,7 @@ const ManageAccount = () => {
 
     // Calculate profit margin based on the aggregated revenue.
     const calculatedProfitMargin =
-      aggregatedRevenue > 0
-        ? ((aggregatedRevenue - currentExpenses) / aggregatedRevenue) * 100
-        : 0;
+      aggregatedRevenue > 0 ? ((aggregatedRevenue - currentExpenses) / aggregatedRevenue) * 100 : 0;
 
     const newAccount = {
       accountId,
@@ -173,9 +158,7 @@ const ManageAccount = () => {
     if (editingAccount) {
       await updateDoc(doc(db, "accounts", editingAccount.id), newAccount);
       setAccounts(
-        accounts.map((acc) =>
-          acc.id === editingAccount.id ? { ...acc, ...newAccount } : acc
-        )
+        accounts.map((acc) => (acc.id === editingAccount.id ? { ...acc, ...newAccount } : acc))
       );
     } else {
       const docRef = await addDoc(collection(db, "accounts"), newAccount);
@@ -376,7 +359,7 @@ const ManageAccount = () => {
                 <InputLabel>Projects</InputLabel>
                 <Select
                   multiple
-                  value={projects}  // projects now contains project IDs
+                  value={projects} // projects now contains project IDs
                   onChange={(e) => setProjects(e.target.value)}
                   renderValue={(selected) => (
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
