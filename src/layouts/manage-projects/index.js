@@ -216,6 +216,16 @@ const ManageProject = () => {
     }
   }, [selectedProject]);
 
+  // Automatically update revenueGenerated and profitMargin when budget or projectExpenses change
+  useEffect(() => {
+    const budgetValue = parseFloat(budget) || 0;
+    const calculatedRevenueGenerated = budgetValue - projectExpenses;
+    const calculatedProfitMargin = (calculatedRevenueGenerated / budgetValue) * 100;
+
+    setRevenueGenerated(calculatedRevenueGenerated);
+    setProfitMargin(calculatedProfitMargin);
+  }, [budget, projectExpenses]);
+
   const handleClickOpen = () => {
     setOpen(true);
     resetForm();
@@ -272,35 +282,6 @@ const ManageProject = () => {
       setInvalidAccountId(!accountExists);
       return;
     }
-
-    // Fetch expenses for the project
-    const projectId = editingProject ? editingProject.projectId : generateUniqueProjectId(name);
-    const expensesQuery = query(collection(db, "expenses"), where("projectId", "==", projectId));
-    const expensesSnapshot = await getDocs(expensesQuery);
-    let totalExpenses = 0;
-    expensesSnapshot.forEach((doc) => {
-      const data = doc.data();
-      totalExpenses += Number(data.amount) || 0;
-    });
-
-    console.log("Budget:", budget); // Debugging
-    console.log("Total Expenses:", totalExpenses); // Debugging
-
-    // Calculate revenueGenerated and profitMargin
-    const budgetValue = parseFloat(budget) || 0;
-    const calculatedRevenueGenerated = budgetValue - totalExpenses;
-    const calculatedProfitMargin = (calculatedRevenueGenerated / budgetValue) * 100;
-
-    console.log("Calculated Revenue Generated:", calculatedRevenueGenerated); // Debugging
-    console.log("Calculated Profit Margin:", calculatedProfitMargin); // Debugging
-
-    // Update state with calculated values
-    setRevenueGenerated(calculatedRevenueGenerated);
-    setProfitMargin(calculatedProfitMargin);
-
-    // Set the expected revenue based on the profit margin
-    const expectedRevenueValue = (budgetValue / (1 - calculatedProfitMargin / 100)).toFixed(2);
-    setExpectedRevenue(expectedRevenueValue);
 
     setConfirmUpdateOpen(true);
   };
@@ -550,6 +531,7 @@ const ManageProject = () => {
                 <Typography variant="subtitle2">Expenses</Typography>
                 <Typography>${projectExpenses}</Typography>
               </Grid>
+              
               <Grid item xs={6}>
                 <Typography variant="subtitle2">ROI (%)</Typography>
                 <Typography>{selectedProject.financialMetrics?.roi || 0}</Typography>
@@ -770,4 +752,4 @@ const ManageProject = () => {
   );
 };
 
-export default ManageProject;
+export default ManageProject; 

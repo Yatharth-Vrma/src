@@ -39,8 +39,6 @@ const ManageAccount = () => {
   // Form states
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
-  // Revenue is calculated automatically from projects so it is not manually entered.
-  // The "projects" state now holds project IDs.
   const [projects, setProjects] = useState([]);
   const [clients, setClients] = useState([]);
   const [status, setStatus] = useState("");
@@ -52,7 +50,10 @@ const ManageAccount = () => {
 
   // State to hold the total expenses fetched for each account (keyed by accountId)
   const [accountExpenses, setAccountExpenses] = useState({});
+  // State to hold the total expenses for each project (keyed by projectId)
+  const [projectExpenses, setProjectExpenses] = useState({});
 
+  // Fetch accounts, projects, and clients on component mount
   useEffect(() => {
     const fetchAccounts = async () => {
       const querySnapshot = await getDocs(collection(db, "accounts"));
@@ -73,23 +74,36 @@ const ManageAccount = () => {
     fetchClients();
   }, []);
 
-  // Fetch the total expenses for each account from the "expenses" collection.
+  // Fetch expenses for each account and project
   useEffect(() => {
     const fetchAllAccountExpenses = async () => {
       const expensesMap = {};
+      const projectExpensesMap = {};
+
       for (const account of accounts) {
         if (account.accountId) {
+          // Fetch expenses for the account
           const q = query(collection(db, "expenses"), where("accountId", "==", account.accountId));
           const qs = await getDocs(q);
-          let total = 0;
+          let totalAccountExpenses = 0;
           qs.forEach((doc) => {
             const data = doc.data();
-            total += Number(data.amount) || 0;
+            totalAccountExpenses += Number(data.amount) || 0;
+
+            // Fetch expenses for each project within the account
+            if (data.projectId) {
+              if (!projectExpensesMap[data.projectId]) {
+                projectExpensesMap[data.projectId] = 0;
+              }
+              projectExpensesMap[data.projectId] += Number(data.amount) || 0;
+            }
           });
-          expensesMap[account.accountId] = total;
+          expensesMap[account.accountId] = totalAccountExpenses;
         }
       }
+
       setAccountExpenses(expensesMap);
+      setProjectExpenses(projectExpensesMap);
     };
 
     if (accounts.length > 0) {
@@ -97,21 +111,23 @@ const ManageAccount = () => {
     }
   }, [accounts]);
 
+  // Open the form dialog
   const handleClickOpen = () => {
     setOpen(true);
     resetForm();
   };
 
+  // Close the form dialog
   const handleClose = () => {
     setOpen(false);
     resetForm();
   };
 
+  // Edit an existing account
   const handleEdit = (account) => {
     setEditingAccount(account);
     setName(account.name || "");
     setIndustry(account.industry || "");
-    // The "projects" field now holds project IDs.
     setProjects(account.projects || []);
     setClients(account.clients || []);
     setStatus(account.status || "");
@@ -119,37 +135,39 @@ const ManageAccount = () => {
     setOpen(true);
   };
 
+  // Submit the form
   const handleSubmit = async () => {
     setConfirmUpdateOpen(true);
   };
 
+  // Confirm and save the account
   const confirmUpdate = async () => {
-    // Generate an account ID if not editing an existing account
     const accountId = editingAccount
       ? editingAccount.accountId
       : `ACC-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // For an existing account, use the fetched expense; otherwise, assume 0
+    // Fetch the total expenses for the account
     const currentExpenses = editingAccount ? accountExpenses[editingAccount.accountId] || 0 : 0;
 
-    // Compute the aggregated revenue by summing the revenueGenerated from the selected projects.
-    // Note: We filter using the project id.
-    const aggregatedRevenue = projectList
+    // Calculate the total budget from the selected projects
+    const totalBudget = projectList
       .filter((project) => projects.includes(project.id))
-      .reduce((sum, project) => sum + (Number(project.financialMetrics?.revenueGenerated) || 0), 0);
+      .reduce((sum, project) => sum + (Number(project.financialMetrics?.budget) || 0), 0);
 
-    // Calculate profit margin based on the aggregated revenue.
-    const calculatedProfitMargin =
-      aggregatedRevenue > 0 ? ((aggregatedRevenue - currentExpenses) / aggregatedRevenue) * 100 : 0;
+    // Calculate revenue as total budget minus total expenses
+    const revenue = totalBudget - currentExpenses;
+
+    // Calculate profit margin as (revenue / total budget) * 100
+    const profitMargin = totalBudget > 0 ? (revenue / totalBudget) * 100 : 0;
 
     const newAccount = {
       accountId,
       name,
       industry,
-      revenue: aggregatedRevenue, // Revenue is now calculated automatically.
+      revenue: revenue.toFixed(2), // Revenue is now calculated as total budget - expenses
       expenses: currentExpenses,
-      profitMargin: calculatedProfitMargin.toFixed(2),
-      projects, // This is now an array of project IDs.
+      profitMargin: profitMargin.toFixed(2), // Profit margin is now calculated as (revenue / total budget) * 100
+      projects,
       clients,
       status,
       notes,
@@ -169,6 +187,7 @@ const ManageAccount = () => {
     handleClose();
   };
 
+  // Reset the form fields
   const resetForm = () => {
     setName("");
     setIndustry("");
@@ -220,7 +239,6 @@ const ManageAccount = () => {
             {/* Account Cards Grid */}
             <Grid container spacing={3} sx={{ padding: "16px" }}>
               {accounts.map((account) => {
-                // Use the stored revenue for display.
                 const displayedRevenue = account.revenue || 0;
 
                 return (
@@ -259,7 +277,7 @@ const ManageAccount = () => {
                           </Grid>
                           <Grid item xs={12} md={6}>
                             <MDTypography variant="body2" color="textSecondary">
-                              <strong>Profit Margin:</strong> {account.profitMargin}%
+                              <strong>Profit Margin:</strong> {account.profitMargin || 0}%
                             </MDTypography>
                             <MDTypography variant="body2" color="textSecondary">
                               <strong>Projects:</strong>{" "}
@@ -267,7 +285,8 @@ const ManageAccount = () => {
                                 ? account.projects
                                     .map((projectId) => {
                                       const project = projectList.find((p) => p.id === projectId);
-                                      return project ? project.name : projectId;
+                                      const projectExpense = projectExpenses[projectId] || 0;
+                                      return project ? `${project.name} ($${projectExpense})` : projectId;
                                     })
                                     .join(", ")
                                 : "No projects assigned"}
@@ -353,13 +372,12 @@ const ManageAccount = () => {
                 ))}
               </TextField>
             </Grid>
-            {/* Revenue field removed from the form as it is calculated automatically */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Projects</InputLabel>
                 <Select
                   multiple
-                  value={projects} // projects now contains project IDs
+                  value={projects}
                   onChange={(e) => setProjects(e.target.value)}
                   renderValue={(selected) => (
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
