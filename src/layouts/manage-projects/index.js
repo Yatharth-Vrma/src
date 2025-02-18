@@ -531,7 +531,7 @@ const ManageProject = () => {
                 <Typography variant="subtitle2">Expenses</Typography>
                 <Typography>${projectExpenses}</Typography>
               </Grid>
-              
+
               <Grid item xs={6}>
                 <Typography variant="subtitle2">ROI (%)</Typography>
                 <Typography>{selectedProject.financialMetrics?.roi || 0}</Typography>
@@ -752,4 +752,4 @@ const ManageProject = () => {
   );
 };
 
-export default ManageProject; 
+export default ManageProject;

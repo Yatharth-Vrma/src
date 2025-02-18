@@ -1,6 +1,6 @@
 import React from "react";
 import { Route, Routes } from "react-router-dom";
-import FinancialOverview from "layouts/dashboard";
+import ExpenseOverview from "layouts/dashboard/FinancialOverview";
 import Customer from "layouts/billing";
 import ManageEmployee from "layouts/manage-employee"; // Ensure this path is correct
 import ManageProjects from "./layouts/manage-projects";
@@ -10,6 +10,7 @@ import ManageEarnings from "layouts/manage-earning";
 import ManageAccount from "layouts/manage-accounts";
 import ManageExpenses from "./layouts/manage-expense";
 import Icon from "@mui/material/Icon";
+import FinancialOverview from "layouts/dashboard/FinancialOverview";
 
 const routes = [
   {

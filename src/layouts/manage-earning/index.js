@@ -176,11 +176,11 @@ const ManageEarnings = () => {
       earningId: `E-${Math.floor(10000 + Math.random() * 90000)}`,
       category,
       referenceId:
-        typeof reference === "object"
+        reference && typeof reference === "object"
           ? reference.projectId || reference.clientId || reference.accountId || reference.name
-          : reference,
+          : reference || "N/A", // Ensure there's a fallback value
       amount: Number(amount) || 0,
-      date: Timestamp.fromDate(new Date(date)),
+      date: date ? Timestamp.fromDate(new Date(date)) : Timestamp.now(),
     };
 
     await addDoc(collection(db, "earnings"), newEarning);

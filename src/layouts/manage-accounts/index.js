@@ -286,7 +286,9 @@ const ManageAccount = () => {
                                     .map((projectId) => {
                                       const project = projectList.find((p) => p.id === projectId);
                                       const projectExpense = projectExpenses[projectId] || 0;
-                                      return project ? `${project.name} ($${projectExpense})` : projectId;
+                                      return project
+                                        ? `${project.name} ($${projectExpense})`
+                                        : projectId;
                                     })
                                     .join(", ")
                                 : "No projects assigned"}

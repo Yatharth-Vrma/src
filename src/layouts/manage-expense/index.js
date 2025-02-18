@@ -31,7 +31,7 @@ import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-// Expense categories (Added "Account" to the list)
+// Expense categories (Removed "Account" from the list)
 const categories = [
   "Rent",
   "Software Licenses",
@@ -40,7 +40,6 @@ const categories = [
   "Marketing",
   "Other",
   "Project",
-  "Account",
 ];
 
 const ManageExpenses = () => {
@@ -62,20 +61,22 @@ const ManageExpenses = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Form states
-  const [category, setCategory] = useState([]);
+  const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
-  // Project and Account are now single selections
   const [projectId, setProjectId] = useState("");
   const [accountId, setAccountId] = useState("");
   const [recurring, setRecurring] = useState(false);
+  const [softwareName, setSoftwareName] = useState("");
+  const [employeeIds, setEmployeeIds] = useState([]);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
 
-  // New states for Project IDs and Account IDs
+  // New states for Project IDs, Account IDs, and Employee IDs
   const [projectIds, setProjectIds] = useState([]);
   const [accountIds, setAccountIds] = useState([]);
 
-  // Fetch expenses and IDs from Firestore
+  // Fetch expenses, project IDs, account IDs, and employee IDs from Firestore
   useEffect(() => {
     const fetchExpenses = async () => {
       const querySnapshot = await getDocs(collection(db, "expenses"));
@@ -102,49 +103,17 @@ const ManageExpenses = () => {
       setAccountIds(accountIdsData);
     };
 
+    const fetchEmployeeIds = async () => {
+      const querySnapshot = await getDocs(collection(db, "employees")); // Assuming you have an "employees" collection
+      const employeeIdsData = querySnapshot.docs.map((doc) => doc.data().employeeId); // Adjust according to your data structure
+      setEmployeeIds(employeeIdsData);
+    };
+
     fetchExpenses();
     fetchProjectIds();
     fetchAccountIds();
+    fetchEmployeeIds();
   }, []);
-
-  // Add this useEffect for date filtering
-  useEffect(() => {
-    const filterByDate = (expenseDate) => {
-      const expenseDateObj = expenseDate?.toDate ? expenseDate.toDate() : new Date(expenseDate);
-      const now = new Date();
-
-      switch (dateFilterType) {
-        case "today":
-          return expenseDateObj.toDateString() === now.toDateString();
-        case "week":
-          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-          return expenseDateObj >= startOfWeek;
-        case "month":
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          return expenseDateObj >= startOfMonth;
-        case "3months":
-          const threeMonthsAgo = new Date(now.setMonth(now.getMonth() - 3));
-          return expenseDateObj >= threeMonthsAgo;
-        case "year":
-          const startOfYear = new Date(now.getFullYear(), 0, 1);
-          return expenseDateObj >= startOfYear;
-        case "custom":
-          if (!customStartDate || !customEndDate) return true;
-          return expenseDateObj >= customStartDate && expenseDateObj <= customEndDate;
-        default:
-          return true;
-      }
-    };
-
-    const filtered = expenses.filter(
-      (expense) =>
-        filterByDate(expense.date) &&
-        (searchTerm === "" ||
-          expense.category.some((cat) => cat.toLowerCase().includes(searchTerm.toLowerCase())))
-    );
-
-    setFilteredExpenses(filtered);
-  }, [dateFilterType, customStartDate, customEndDate, searchTerm, expenses]);
 
   // Handle search by category
   useEffect(() => {
@@ -173,10 +142,7 @@ const ManageExpenses = () => {
   // Populate form fields for editing an expense
   const handleEdit = (expense) => {
     setEditingExpense(expense);
-    const categoryArray = Array.isArray(expense.category)
-      ? expense.category
-      : [expense.category].filter((c) => c);
-    setCategory(categoryArray);
+    setCategory(expense.category);
     setAmount(expense.amount);
     setDate(
       expense.date && typeof expense.date.toDate === "function"
@@ -187,10 +153,12 @@ const ManageExpenses = () => {
     setProjectId(expense.projectId || "");
     setAccountId(expense.accountId || "");
     setRecurring(expense.recurring || false);
+    setSoftwareName(expense.softwareName || "");
+    setSelectedEmployeeIds(expense.employeeIds || []);
     setOpen(true);
   };
 
-  // Open confirmation dialog for update/add
+  // Handle submission of the form
   const handleSubmit = async () => {
     setConfirmUpdateOpen(true);
   };
@@ -211,13 +179,15 @@ const ManageExpenses = () => {
 
     const newExpense = {
       expenseId: editingExpense ? editingExpense.expenseId : generateExpenseId(),
-      category: Array.isArray(category) ? category : [category], // Ensure array
+      category: category, // Single category
       amount: Number(amount),
       date: parsedDate, // Use the parsed date
       description,
       projectId: projectId || null,
       accountId: accountId || null,
       recurring,
+      softwareName: category === "Software Licenses" ? softwareName : null,
+      employeeIds: category === "Salaries" ? selectedEmployeeIds : null,
     };
 
     if (editingExpense) {
@@ -243,13 +213,15 @@ const ManageExpenses = () => {
 
   // Reset all form fields
   const resetForm = () => {
-    setCategory([]);
+    setCategory("");
     setAmount("");
     setDate("");
     setDescription("");
     setProjectId("");
     setAccountId("");
     setRecurring(false);
+    setSoftwareName("");
+    setSelectedEmployeeIds([]);
     setEditingExpense(null);
   };
 
@@ -479,23 +451,41 @@ const ManageExpenses = () => {
           <DialogContent>
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Autocomplete
-                  multiple
-                  options={categories}
-                  value={category}
-                  onChange={(event, newValue) => setCategory(newValue)}
-                  renderInput={(params) => <TextField {...params} label="Category" />}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip
-                        key={index}
-                        label={option}
-                        color="primary"
-                        {...getTagProps({ index })}
-                      />
-                    ))
-                  }
-                />
+                <FormControl fullWidth>
+                  <InputLabel id="category-select-label">Category</InputLabel>
+                  <Select
+                    labelId="category-select-label"
+                    id="category-select"
+                    value={category}
+                    label="Category"
+                    onChange={(e) => setCategory(e.target.value)}
+                  >
+                    {categories.map((cat, index) => (
+                      <MenuItem key={index} value={cat}>
+                        {cat}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel id="account-select-label">Account</InputLabel>
+                  <Select
+                    labelId="account-select-label"
+                    id="account-select"
+                    value={accountId}
+                    label="Account"
+                    onChange={(e) => setAccountId(e.target.value)}
+                    required
+                  >
+                    {accountIds.map((acc, index) => (
+                      <MenuItem key={index} value={acc}>
+                        {acc}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
@@ -523,7 +513,7 @@ const ManageExpenses = () => {
               </Grid>
 
               {/* Conditionally render the Project dropdown if "Project" is selected */}
-              {category.includes("Project") && (
+              {category === "Project" && (
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
                     <InputLabel id="project-select-label">Project</InputLabel>
@@ -544,25 +534,38 @@ const ManageExpenses = () => {
                 </Grid>
               )}
 
-              {/* Conditionally render the Account dropdown if "Account" is selected */}
-              {category.includes("Account") && (
+              {/* Conditionally render the Employee dropdown if "Salaries" is selected */}
+              {category === "Salaries" && (
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
-                    <InputLabel id="account-select-label">Account</InputLabel>
+                    <InputLabel id="employee-select-label">Employee</InputLabel>
                     <Select
-                      labelId="account-select-label"
-                      id="account-select"
-                      value={accountId}
-                      label="Account"
-                      onChange={(e) => setAccountId(e.target.value)}
+                      labelId="employee-select-label"
+                      id="employee-select"
+                      multiple
+                      value={selectedEmployeeIds}
+                      label="Employee"
+                      onChange={(e) => setSelectedEmployeeIds(e.target.value)}
                     >
-                      {accountIds.map((acc, index) => (
-                        <MenuItem key={index} value={acc}>
-                          {acc}
+                      {employeeIds.map((emp, index) => (
+                        <MenuItem key={index} value={emp}>
+                          {emp}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
+                </Grid>
+              )}
+
+              {/* Conditionally render the Software Name field if "Software Licenses" is selected */}
+              {category === "Software Licenses" && (
+                <Grid item xs={12}>
+                  <TextField
+                    label="Software Name"
+                    value={softwareName}
+                    onChange={(e) => setSoftwareName(e.target.value)}
+                    required
+                  />
                 </Grid>
               )}
 
