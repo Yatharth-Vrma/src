@@ -74,27 +74,100 @@ const FinancialOverview = () => {
     if (activeTab === "Profit and Loss") {
       // Bar chart for Profit and Loss
       const option = {
-        tooltip: { trigger: "item" },
-        legend: { top: "5%", left: "center" },
+        title: {
+          text: "Earnings vs Expenses",
+          subtext: "Monthly Comparison",
+        },
+        tooltip: {
+          trigger: "axis",
+        },
+        legend: {
+          data: ["Earnings", "Expenses"],
+        },
+        toolbox: {
+          show: true,
+          feature: {
+            dataView: { show: true, readOnly: false },
+            magicType: { show: true, type: ["line", "bar"] },
+            restore: { show: true },
+            saveAsImage: { show: true },
+          },
+        },
+        calculable: true,
+        xAxis: [
+          {
+            type: "category",
+            data: data.months, // Months for the x-axis
+          },
+        ],
+        yAxis: [
+          {
+            type: "value",
+          },
+        ],
+        series: [
+          {
+            name: "Earnings",
+            type: "bar",
+            data: data.earnings, // Earnings data
+            markPoint: {
+              data: [
+                { type: "max", name: "Max" },
+                { type: "min", name: "Min" },
+              ],
+            },
+            markLine: {
+              data: [{ type: "average", name: "Avg" }],
+            },
+          },
+          {
+            name: "Expenses",
+            type: "bar",
+            data: data.expenses, // Expenses data
+            markPoint: {
+              data: [
+                { type: "max", name: "Max" },
+                { type: "min", name: "Min" },
+              ],
+            },
+            markLine: {
+              data: [{ type: "average", name: "Avg" }],
+            },
+          },
+        ],
+      };
+      chartInstance.current.setOption(option);
+    } else if (activeTab === "Financial Runway") {
+      // Bar chart for Financial Runway
+      const option = {
+        title: {
+          text: "Financial Runway",
+          subtext: "Months of Runway Based on Current Expenses",
+        },
+        tooltip: {
+          trigger: "axis",
+        },
         xAxis: {
           type: "category",
-          data: data.months, // Months for the x-axis
+          data: ["Runway Months"],
         },
         yAxis: {
           type: "value",
         },
         series: [
           {
-            name: "Expenses",
+            name: "Runway Months",
             type: "bar",
-            data: data.expenses, // Expenses data
-            itemStyle: { color: "#FF6384" }, // Red color for expenses
-          },
-          {
-            name: "Earnings",
-            type: "bar",
-            data: data.earnings, // Earnings data
-            itemStyle: { color: "#36A2EB" }, // Blue color for earnings
+            data: [data.runwayMonths],
+            markPoint: {
+              data: [
+                { type: "max", name: "Max" },
+                { type: "min", name: "Min" },
+              ],
+            },
+            markLine: {
+              data: [{ type: "average", name: "Avg" }],
+            },
           },
         ],
       };
@@ -172,6 +245,14 @@ const FinancialOverview = () => {
     }));
   };
 
+  const calculateRunwayMonths = () => {
+    const totalEarnings = organizationEarnings.reduce((sum, earning) => sum + earning.amount, 0);
+    const totalExpenses = organizationExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const averageMonthlyExpenses = totalExpenses / organizationExpenses.length;
+    const runwayMonths = totalEarnings / averageMonthlyExpenses;
+    return { runwayMonths };
+  };
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setView("Organization Level"); // Reset view to "Organization Level" when switching tabs
@@ -182,48 +263,66 @@ const FinancialOverview = () => {
     } else if (tab === "Profit and Loss") {
       const data = aggregateDataByMonth(organizationExpenses, organizationEarnings);
       updateChart(data);
+    } else if (tab === "Financial Runway") {
+      const data = calculateRunwayMonths();
+      updateChart(data);
     }
   };
 
   const handleViewChange = (event) => {
     const newView = event.target.value;
     setView(newView);
+
+    // Ensure that selectedAccount is defined and has the expected structure
+    const accountExpenses = Array.isArray(selectedAccount?.expenses)
+      ? selectedAccount.expenses
+      : [];
+    const accountEarnings = Array.isArray(selectedAccount?.earnings)
+      ? selectedAccount.earnings
+      : [];
+
     if (activeTab === "Expenses") {
       if (newView === "Organization Level") {
         updateChart(transformDataToPieData(organizationExpenses));
       } else if (newView === "Account Level" && selectedAccount) {
-        updateChart(transformDataToPieData(selectedAccount.expenses || []));
+        updateChart(transformDataToPieData(accountExpenses));
       }
     } else if (activeTab === "Earning") {
       if (newView === "Organization Level") {
         updateChart(transformDataToPieData(organizationEarnings));
       } else if (newView === "Account Level" && selectedAccount) {
-        updateChart(transformDataToPieData(selectedAccount.earnings || []));
+        updateChart(transformDataToPieData(accountEarnings));
       }
     } else if (activeTab === "Profit and Loss") {
       if (newView === "Organization Level") {
         const data = aggregateDataByMonth(organizationExpenses, organizationEarnings);
         updateChart(data);
       } else if (newView === "Account Level" && selectedAccount) {
-        const accountExpenses = selectedAccount.expenses || [];
-        const accountEarnings = selectedAccount.earnings || [];
         const data = aggregateDataByMonth(accountExpenses, accountEarnings);
         updateChart(data);
       }
+    } else if (activeTab === "Financial Runway") {
+      const data = calculateRunwayMonths();
+      updateChart(data);
     }
   };
 
   const handleAccountChange = (event) => {
     const account = event.target.value;
     setSelectedAccount(account);
+
+    const accountExpenses = Array.isArray(account.expenses) ? account.expenses : [];
+    const accountEarnings = Array.isArray(account.earnings) ? account.earnings : [];
+
     if (activeTab === "Expenses") {
-      updateChart(transformDataToPieData(account.expenses || []));
+      updateChart(transformDataToPieData(accountExpenses));
     } else if (activeTab === "Earning") {
-      updateChart(transformDataToPieData(account.earnings || []));
+      updateChart(transformDataToPieData(accountEarnings));
     } else if (activeTab === "Profit and Loss") {
-      const accountExpenses = account.expenses || [];
-      const accountEarnings = account.earnings || [];
       const data = aggregateDataByMonth(accountExpenses, accountEarnings);
+      updateChart(data);
+    } else if (activeTab === "Financial Runway") {
+      const data = calculateRunwayMonths();
       updateChart(data);
     }
   };
@@ -259,7 +358,8 @@ const FinancialOverview = () => {
 
             {(activeTab === "Expenses" ||
               activeTab === "Earning" ||
-              activeTab === "Profit and Loss") && (
+              activeTab === "Profit and Loss" ||
+              activeTab === "Financial Runway") && (
               <>
                 <FormControl fullWidth sx={{ mb: 2 }}>
                   <InputLabel>View</InputLabel>
@@ -305,7 +405,8 @@ const FinancialOverview = () => {
 
             {activeTab !== "Expenses" &&
               activeTab !== "Earning" &&
-              activeTab !== "Profit and Loss" && (
+              activeTab !== "Profit and Loss" &&
+              activeTab !== "Financial Runway" && (
                 <Typography variant="h6" sx={{ textAlign: "center", mt: 5 }}>
                   {activeTab} Page (Coming Soon)
                 </Typography>
