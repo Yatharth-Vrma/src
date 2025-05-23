@@ -1,81 +1,103 @@
 import React, { useState, useEffect } from "react";
-import PropTypes from "prop-types"; // Import PropTypes
+import PropTypes from "prop-types";
 import {
   Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Grid,
   Card,
   Typography,
   Box,
   MenuItem,
-  Chip,
+  Select,
+  FormControl,
+  InputLabel,
+  CircularProgress,
+  Checkbox,
+  ListItemText,
 } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 import MDBadge from "components/MDBadge";
 import DataTable from "examples/Tables/DataTable";
-import { db } from "./firebase";
-import { collection, addDoc, getDocs, doc, updateDoc } from "firebase/firestore";
+import DashboardNavbar from "examples/Navbars/DashboardNavbar";
+import Footer from "examples/Footer";
+import { db, auth } from "./firebase";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  updateDoc,
+  setDoc,
+  query,
+  where,
+} from "firebase/firestore";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { useMaterialUIController } from "context";
+import * as XLSX from "xlsx";
 
 const departments = ["HR", "Engineering", "Marketing", "Sales", "Finance"];
 const statuses = ["Active", "On Leave", "Resigned", "Terminated"];
+const roles = [
+  "ManageProject:read",
+  "ManageProject:full access",
+  "ManageAccount:read",
+  "ManageAccount:full access",
+  "ManageExpense:read",
+  "ManageExpense:full access",
+  "ManageEarning:read",
+  "ManageEarning:full access",
+  "ManageClient:read",
+  "ManageClient:full access",
+  "ManageMarketing:full access",
+  "ManageSales:full access",
+];
 
-// Custom styled button component
-import { styled } from "@mui/material/styles";
-
-const CustomButton = styled("button")({
-  padding: "10px 25px",
-  border: "unset",
-  borderRadius: "15px",
-  color: "#212121",
-  zIndex: 1,
-  background: "#e8e8e8",
-  position: "relative",
-  fontWeight: 1000,
-  fontSize: "17px",
-  boxShadow: "4px 8px 19px -3px rgba(0,0,0,0.27)",
-  transition: "all 250ms",
-  overflow: "hidden",
-  "&::before": {
-    content: '""',
-    position: "absolute",
-    top: 0,
-    left: 0,
-    height: "100%",
-    width: 0,
-    borderRadius: "15px",
-    backgroundColor: "#212121",
-    zIndex: -1,
-    boxShadow: "4px 8px 19px -3px rgba(0,0,0,0.27)",
-    transition: "all 250ms",
-  },
-  "&:hover": {
-    color: "#e8e8e8",
-  },
-  "&:hover::before": {
-    width: "100%",
-  },
-});
-
-// Function to generate a unique employee ID
+// Generate unique employee ID
 const generateEmployeeId = (name) => {
-  const prefix = name.substring(0, 3).toUpperCase(); // Take the first 3 letters of the name and convert to uppercase
-  const randomNumber = Math.floor(Math.random() * 900 + 100); // Random 3-digit number between 100 and 999
-  return `${prefix}-${randomNumber}`; // Fixed template literal
+  const prefix = name.substring(0, 3).toUpperCase();
+  const randomNumber = Math.floor(Math.random() * 900 + 100);
+  return `${prefix}-${randomNumber}`;
+};
+
+// Check if an ID is unique in Firestore
+const checkUniqueId = async (collectionName, field, value, excludeDocId = null) => {
+  try {
+    const q = query(collection(db, collectionName), where(field, "==", value));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.every((doc) => doc.id !== excludeDocId);
+  } catch (error) {
+    console.error(`Error checking unique ${field}:`, error);
+    return false;
+  }
+};
+
+// Validate email format
+const isValidEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 };
 
 const ManageEmployee = () => {
   const [open, setOpen] = useState(false);
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
+  const [editPermissionsOpen, setEditPermissionsOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [roles, setRoles] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
+  const [userRoles, setUserRoles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  const [excelOption, setExcelOption] = useState("");
+  const [errors, setErrors] = useState({});
 
   // Form states
   const [name, setName] = useState("");
@@ -87,32 +109,86 @@ const ManageEmployee = () => {
   const [exitDate, setExitDate] = useState("");
   const [salary, setSalary] = useState("");
   const [status, setStatus] = useState("");
-  const [roleId, setRoleId] = useState("");
+  const [selectedRoles, setSelectedRoles] = useState([]);
 
-  // Fetch employees and roles when the component mounts
+  // Dark mode state
+  const [controller] = useMaterialUIController();
+  const { miniSidenav, darkMode } = controller;
+
+  // Fetch user roles from Firestore "users" collection
   useEffect(() => {
-    const fetchData = async () => {
-      // Fetch employees
-      const employeesSnapshot = await getDocs(collection(db, "employees"));
-      const employeesData = employeesSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setEmployees(employeesData);
-
-      // Fetch roles
-      const rolesSnapshot = await getDocs(collection(db, "roles"));
-      const rolesData = rolesSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        roleId: doc.data().roleId,
-      }));
-      setRoles(rolesData);
+    const fetchUserRoles = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const q = query(collection(db, "users"), where("email", "==", user.email));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0].data();
+            setUserRoles(userDoc.roles || []);
+          } else {
+            console.error("User not found in Firestore");
+            setUserRoles([]);
+          }
+        } catch (error) {
+          console.error("Error fetching user roles:", error);
+          setUserRoles([]);
+        }
+      } else {
+        setUserRoles([]);
+      }
+      setLoadingRoles(false);
     };
 
-    fetchData();
+    fetchUserRoles();
   }, []);
 
-  // Employee Component with PropTypes
+  const isReadOnly =
+    userRoles.includes("ManageEmployee:read") && !userRoles.includes("ManageEmployee:full access");
+  const hasAccess =
+    userRoles.includes("ManageEmployee:read") || userRoles.includes("ManageEmployee:full access");
+
+  // Fetch employees
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setFetchError(null);
+        const employeesSnapshot = await getDocs(collection(db, "employees"));
+        const employeesData = employeesSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setEmployees(employeesData);
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+        setFetchError("Failed to fetch employees. Please try again.");
+      }
+    };
+
+    if (!loadingRoles) {
+      fetchData();
+    }
+  }, [loadingRoles]);
+
+  // Filter employees based on search query
+  const filteredEmployees = employees.filter((employee) =>
+    employee.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Pagination logic
+  const totalItems = filteredEmployees.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  // Employee Component
   const Employee = ({ name, employeeId, email }) => (
     <MDBox display="flex" alignItems="center" lineHeight={1}>
       <MDBox ml={0} lineHeight={1.2}>
@@ -135,7 +211,7 @@ const ManageEmployee = () => {
     email: PropTypes.string.isRequired,
   };
 
-  // DesignationDept Component with PropTypes
+  // DesignationDept Component
   const DesignationDept = ({ designation, department }) => (
     <MDBox lineHeight={1} textAlign="left">
       <MDTypography display="block" variant="caption" color="text" fontWeight="medium">
@@ -150,7 +226,7 @@ const ManageEmployee = () => {
     department: PropTypes.string.isRequired,
   };
 
-  // StatusBadge Component with PropTypes
+  // StatusBadge Component
   const StatusBadge = ({ status }) => {
     const colorMap = {
       Active: "success",
@@ -174,13 +250,292 @@ const ManageEmployee = () => {
     status: PropTypes.string.isRequired,
   };
 
+  // Handle Excel option change
+  const handleExcelOptionChange = (event) => {
+    const option = event.target.value;
+    setExcelOption(option);
+
+    if (option === "upload") {
+      document.getElementById("file-upload").click();
+    } else if (option === "download") {
+      handleDownloadExcel();
+    } else if (option === "downloadDummy") {
+      handleDownloadDummyExcel();
+    }
+
+    setExcelOption("");
+  };
+
+  // Handle Excel file upload
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "", blankrows: false });
+
+        const authInstance = getAuth();
+        const validRoles = roles.map((r) => r.toLowerCase());
+
+        // Normalize column names for Excel import
+        const normalizeColumnName = (name) => {
+          if (!name) return "";
+          const cleanName = name.trim().toLowerCase().replace(/\s+/g, "");
+          if (cleanName.includes("name")) return "Name";
+          if (cleanName.includes("email")) return "Email";
+          if (cleanName.includes("phone")) return "Phone";
+          if (cleanName.includes("department")) return "Department";
+          if (cleanName.includes("designation")) return "Designation";
+          if (cleanName.includes("joiningdate") || cleanName.includes("joining"))
+            return "Joining Date";
+          if (cleanName.includes("exitdate") || cleanName.includes("exit")) return "Exit Date";
+          if (cleanName.includes("salary")) return "Salary";
+          if (cleanName.includes("status")) return "Status";
+          if (cleanName.includes("roles")) return "Roles";
+          return name;
+        };
+
+        const normalizedData = jsonData.map((row) => {
+          const normalizedRow = {};
+          Object.keys(row).forEach((key) => {
+            normalizedRow[normalizeColumnName(key)] = row[key];
+          });
+          return normalizedRow;
+        });
+
+        for (const employee of normalizedData) {
+          // Validate required fields
+          if (
+            !employee["Name"]?.trim() ||
+            !employee["Email"]?.trim() ||
+            !employee["Department"]?.trim() ||
+            !employee["Designation"]?.trim() ||
+            !employee["Joining Date"]?.trim() ||
+            !employee["Status"]?.trim()
+          ) {
+            console.error("Missing required fields in employee:", employee["Name"]);
+            alert(
+              `Missing required fields for employee ${
+                employee["Name"] || "unknown"
+              }. Required: Name, Email, Department, Designation, Joining Date, Status.`
+            );
+            return;
+          }
+
+          // Validate email format
+          if (!isValidEmail(employee["Email"])) {
+            console.error("Invalid email format for employee:", employee["Name"]);
+            alert(`Invalid email format "${employee["Email"]}" for employee ${employee["Name"]}.`);
+            return;
+          }
+
+          // Validate department
+          const normalizedDepartment = employee["Department"].trim();
+          if (
+            !departments.map((d) => d.toLowerCase()).includes(normalizedDepartment.toLowerCase())
+          ) {
+            console.error("Invalid department for employee:", employee["Name"]);
+            alert(
+              `Invalid department "${employee["Department"]}" for employee ${employee["Name"]}.`
+            );
+            return;
+          }
+
+          // Validate status
+          const normalizedStatus = employee["Status"].trim();
+          if (!statuses.map((s) => s.toLowerCase()).includes(normalizedStatus.toLowerCase())) {
+            console.error("Invalid status for employee:", employee["Name"]);
+            alert(`Invalid status "${employee["Status"]}" for employee ${employee["Name"]}.`);
+            return;
+          }
+
+          // Validate joining date format (YYYY-MM-DD)
+          const joiningDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!joiningDateRegex.test(employee["Joining Date"])) {
+            console.error("Invalid joining date format for employee:", employee["Name"]);
+            alert(
+              `Invalid joining date format "${employee["Joining Date"]}" for employee ${employee["Name"]}. Use YYYY-MM-DD.`
+            );
+            return;
+          }
+
+          // Validate exit date format if provided
+          if (employee["Exit Date"] && !joiningDateRegex.test(employee["Exit Date"])) {
+            console.error("Invalid exit date format for employee:", employee["Name"]);
+            alert(
+              `Invalid exit date format "${employee["Exit Date"]}" for employee ${employee["Name"]}. Use YYYY-MM-DD.`
+            );
+            return;
+          }
+
+          // Validate salary if provided
+          if (employee["Salary"] && isNaN(Number(employee["Salary"]))) {
+            console.error("Invalid salary for employee:", employee["Name"]);
+            alert(`Invalid salary "${employee["Salary"]}" for employee ${employee["Name"]}.`);
+            return;
+          }
+
+          // Process roles
+          let employeeRoles = [];
+          if (employee["Roles"]) {
+            employeeRoles = employee["Roles"]
+              .toString()
+              .split(",")
+              .map((r) => r.trim())
+              .filter((r) => validRoles.includes(r.toLowerCase()));
+          }
+
+          // Generate unique employee ID
+          let employeeId = generateEmployeeId(employee["Name"]);
+          let attempts = 0;
+          const maxAttempts = 10;
+
+          while (attempts < maxAttempts) {
+            const isEmployeeIdUnique = await checkUniqueId("employees", "employeeId", employeeId);
+            if (isEmployeeIdUnique) break;
+            employeeId = generateEmployeeId(employee["Name"]);
+            attempts++;
+          }
+
+          if (attempts >= maxAttempts) {
+            console.error("Could not generate unique ID for employee:", employee["Name"]);
+            alert("Failed to generate unique ID for some employees. Please try again.");
+            return;
+          }
+
+          // Create Firebase Auth user
+          const userCredential = await createUserWithEmailAndPassword(
+            authInstance,
+            employee["Email"],
+            employee["Joining Date"].split("-").reverse().join("")
+          ).catch((error) => {
+            if (error.code === "auth/email-already-in-use") {
+              console.error("Email already in use for employee:", employee["Name"]);
+              alert(
+                `Email "${employee["Email"]}" is already registered for employee ${employee["Name"]}. Please use a different email.`
+              );
+            } else {
+              console.error("Error creating user for employee:", employee["Name"], error);
+              alert(
+                `Failed to create user for employee ${employee["Name"]}. Error: ${error.message}`
+              );
+            }
+            throw error;
+          });
+
+          if (!userCredential) return;
+
+          const user = userCredential.user;
+
+          // Create new employee object
+          const newEmployee = {
+            employeeId,
+            name: employee["Name"].trim(),
+            email: employee["Email"].trim(),
+            phone: employee["Phone"]?.toString().trim() || "",
+            department: normalizedDepartment,
+            designation: employee["Designation"].trim(),
+            joiningDate: employee["Joining Date"].trim(),
+            exitDate: employee["Exit Date"]?.trim() || "",
+            salary: employee["Salary"] ? Number(employee["Salary"]).toString() : "",
+            status: normalizedStatus,
+            roles: employeeRoles,
+            uid: user.uid,
+          };
+
+          // Save employee to Firestore
+          try {
+            const docRef = await addDoc(collection(db, "employees"), newEmployee);
+            setEmployees((prev) => [...prev, { id: docRef.id, ...newEmployee }]);
+
+            // Store roles in Firestore under the 'users' collection
+            await setDoc(doc(db, "users", user.uid), {
+              email: newEmployee.email,
+              roles: newEmployee.roles,
+            });
+          } catch (error) {
+            console.error("Error adding employee from Excel:", error);
+            alert(
+              `Failed to add employee ${employee["Name"] || "unknown"}. Error: ${error.message}`
+            );
+            return;
+          }
+        }
+        alert("Employees imported successfully!");
+      } catch (error) {
+        console.error("Error processing Excel file:", error);
+        alert(
+          "Failed to process Excel file. Please ensure it contains the required fields (Name, Email, Department, Designation, Joining Date, Status) and is in a valid format (.xlsx, .xls, .csv)."
+        );
+      }
+    };
+
+    if (file.name.endsWith(".csv")) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsArrayBuffer(file);
+    }
+  };
+
+  // Handle Excel download
+  const handleDownloadExcel = () => {
+    const exportData = employees.map((employee) => ({
+      Name: employee.name,
+      Email: employee.email,
+      Phone: employee.phone || "",
+      Department: employee.department,
+      Designation: employee.designation,
+      "Joining Date": employee.joiningDate,
+      "Exit Date": employee.exitDate || "",
+      Salary: employee.salary || "",
+      Status: employee.status,
+      Roles: employee.roles ? employee.roles.join(", ") : "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    XLSX.writeFile(workbook, "employees_export.xlsx");
+  };
+
+  // Handle dummy Excel download
+  const handleDownloadDummyExcel = () => {
+    const dummyData = [
+      {
+        Name: "",
+        Email: "",
+        Phone: "",
+        Department: "",
+        Designation: "",
+        "Joining Date": "",
+        "Exit Date": "",
+        Salary: "",
+        Status: "",
+        Roles: "",
+      },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(dummyData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    XLSX.writeFile(workbook, "employees_dummy.xlsx");
+  };
+
   const handleViewDetails = (employee) => {
     setSelectedEmployee(employee);
     setViewDetailsOpen(true);
   };
 
-  const handleEdit = () => {
-    const employee = selectedEmployee;
+  const handleEdit = (employee) => {
+    if (!employee) {
+      employee = selectedEmployee;
+    }
     setEditingEmployee(employee);
     setName(employee.name);
     setEmail(employee.email);
@@ -191,20 +546,275 @@ const ManageEmployee = () => {
     setExitDate(employee.exitDate);
     setSalary(employee.salary);
     setStatus(employee.status);
-    setRoleId(employee.roleId);
+    setSelectedRoles(employee.roles || []);
+    setErrors({});
     setViewDetailsOpen(false);
     setOpen(true);
   };
 
+  const handleEditPermissions = (employee) => {
+    setSelectedEmployee(employee);
+    setSelectedRoles(employee.roles || []);
+    setEditPermissionsOpen(true);
+  };
+
+  const handleSavePermissions = async () => {
+    if (selectedEmployee) {
+      try {
+        await updateDoc(doc(db, "employees", selectedEmployee.id), {
+          roles: selectedRoles,
+        });
+
+        await setDoc(
+          doc(db, "users", selectedEmployee.uid),
+          {
+            email: selectedEmployee.email,
+            roles: selectedRoles,
+          },
+          { merge: true }
+        );
+
+        setEmployees(
+          employees.map((emp) =>
+            emp.id === selectedEmployee.id ? { ...emp, roles: selectedRoles } : emp
+          )
+        );
+
+        setEditPermissionsOpen(false);
+      } catch (error) {
+        console.error("Error updating permissions:", error);
+        alert("Failed to update permissions. Please try again.");
+      }
+    }
+  };
+
+  const handleClickOpen = () => {
+    setOpen(true);
+    resetForm();
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    resetForm();
+  };
+
+  // Validate form inputs
+  const validateForm = () => {
+    const newErrors = {};
+    if (!name.trim()) newErrors.name = "Name is required";
+    if (!email.trim()) newErrors.email = "Email is required";
+    else if (!isValidEmail(email)) newErrors.email = "Invalid email format";
+    if (!department) newErrors.department = "Department is required";
+    if (!designation.trim()) newErrors.designation = "Designation is required";
+    if (!joiningDate) newErrors.joiningDate = "Joining Date is required";
+    if (!status) newErrors.status = "Status is required";
+    if (salary && isNaN(Number(salary))) newErrors.salary = "Salary must be a number";
+    if (exitDate && !/^\d{4}-\d{2}-\d{2}$/.test(exitDate))
+      newErrors.exitDate = "Exit Date must be in YYYY-MM-DD format";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setConfirmUpdateOpen(true);
+  };
+
+  const confirmUpdate = async () => {
+    const authInstance = getAuth();
+    let employeeId = editingEmployee ? editingEmployee.employeeId : generateEmployeeId(name);
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    if (!editingEmployee) {
+      while (attempts < maxAttempts) {
+        const isEmployeeIdUnique = await checkUniqueId("employees", "employeeId", employeeId);
+        if (isEmployeeIdUnique) break;
+        employeeId = generateEmployeeId(name);
+        attempts++;
+      }
+
+      if (attempts >= maxAttempts) {
+        console.error("Could not generate unique employee ID");
+        alert("Failed to generate unique Employee ID. Please try again.");
+        setConfirmUpdateOpen(false);
+        return;
+      }
+    }
+
+    if (editingEmployee) {
+      const updatedEmployee = {
+        employeeId,
+        name,
+        email,
+        phone,
+        department,
+        designation,
+        joiningDate,
+        exitDate,
+        salary,
+        status,
+        roles: selectedRoles,
+        uid: editingEmployee.uid,
+      };
+
+      try {
+        await updateDoc(doc(db, "employees", editingEmployee.id), updatedEmployee);
+        setEmployees(
+          employees.map((emp) =>
+            emp.id === editingEmployee.id ? { id: emp.id, ...updatedEmployee } : emp
+          )
+        );
+
+        await setDoc(
+          doc(db, "users", editingEmployee.uid),
+          {
+            email,
+            roles: selectedRoles,
+          },
+          { merge: true }
+        );
+
+        setConfirmUpdateOpen(false);
+        handleClose();
+      } catch (error) {
+        console.error("Error updating employee:", error);
+        alert("Failed to update employee. Please try again.");
+      }
+    } else {
+      try {
+        const userCredential = await createUserWithEmailAndPassword(
+          authInstance,
+          email,
+          joiningDate.split("-").reverse().join("")
+        ).catch((error) => {
+          if (error.code === "auth/email-already-in-use") {
+            alert("This email is already registered. Please use a different email.");
+          } else {
+            console.error("Error creating user:", error);
+            alert(`Failed to create user. Error: ${error.message}`);
+          }
+          throw error;
+        });
+
+        if (!userCredential) return;
+
+        const user = userCredential.user;
+
+        const newEmployee = {
+          employeeId,
+          name,
+          email,
+          phone,
+          department,
+          designation,
+          joiningDate,
+          exitDate,
+          salary,
+          status,
+          roles: selectedRoles,
+          uid: user.uid,
+        };
+
+        const docRef = await addDoc(collection(db, "employees"), newEmployee);
+        setEmployees([...employees, { id: docRef.id, ...newEmployee }]);
+
+        await setDoc(doc(db, "users", user.uid), {
+          email,
+          roles: selectedRoles,
+        });
+
+        setConfirmUpdateOpen(false);
+        handleClose();
+      } catch (error) {
+        console.error("Error adding employee:", error);
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setName("");
+    setEmail("");
+    setPhone("");
+    setDepartment("");
+    setDesignation("");
+    setJoiningDate("");
+    setExitDate("");
+    setSalary("");
+    setStatus("");
+    setSelectedRoles([]);
+    setEditingEmployee(null);
+    setErrors({});
+  };
+
+  // Styles for form elements (matched with ManageClient)
+  const formStyle = {
+    border: "none",
+  };
+
+  const labelStyle = {
+    fontSize: "15px",
+    display: "block",
+    width: "100%",
+    marginTop: "8px",
+    marginBottom: "5px",
+    textAlign: "left",
+    color: "#555",
+    fontWeight: "bold",
+  };
+
+  const inputStyle = {
+    display: "block",
+    width: "100%",
+    padding: "8px",
+    boxSizing: "border-box",
+    border: "1px solid #ddd",
+    borderRadius: "3px",
+    fontSize: "12px",
+  };
+
+  const selectStyle = {
+    display: "block",
+    width: "100%",
+    marginBottom: "15px",
+    padding: "10px",
+    boxSizing: "border-box",
+    border: "1px solid #ddd",
+    borderRadius: "5px",
+    fontSize: "12px",
+  };
+
+  const buttonStyle = {
+    padding: "15px",
+    borderRadius: "10px",
+    margin: "15px",
+    border: "none",
+    color: "white",
+    cursor: "pointer",
+    backgroundColor: "#4caf50",
+    width: "40%",
+    fontSize: "16px",
+    fontWeight: "bold",
+  };
+
+  const titleStyle = {
+    fontSize: "x-large",
+    textAlign: "center",
+    color: "#327c35",
+  };
+
+  // Define tableData with paginated employees
   const tableData = {
     columns: [
-      { Header: "employee", accessor: "employee", width: "30%", align: "left" },
-      { Header: "designation & dept", accessor: "designation", align: "left" },
-      { Header: "status", accessor: "status", align: "center" },
-      { Header: "joined date", accessor: "joined", align: "center" },
-      { Header: "actions", accessor: "actions", align: "center" },
+      { Header: "Employee", accessor: "employee", width: "30%", align: "left" },
+      { Header: "Designation & Dept", accessor: "designation", align: "left" },
+      { Header: "Status", accessor: "status", align: "center" },
+      { Header: "Joined Date", accessor: "joined", align: "center" },
+      { Header: "Actions", accessor: "actions", align: "center" },
     ],
-    rows: employees.map((employee) => ({
+    rows: paginatedEmployees.map((employee) => ({
       employee: (
         <Employee name={employee.name} employeeId={employee.employeeId} email={employee.email} />
       ),
@@ -227,310 +837,664 @@ const ManageEmployee = () => {
           >
             View Employee
           </Button>
+          {!isReadOnly && (
+            <>
+              <Button
+                variant="gradient"
+                color="info"
+                onClick={() => handleEdit(employee)}
+                sx={{ mb: 2, ml: 1 }}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="gradient"
+                color="warning"
+                onClick={() => handleEditPermissions(employee)}
+                sx={{ mb: 2, ml: 1 }}
+              >
+                Permissions
+              </Button>
+            </>
+          )}
         </MDBox>
       ),
     })),
   };
 
-  const handleClickOpen = () => {
-    setOpen(true);
-    resetForm();
-  };
+  // Render loading state
+  if (loadingRoles) {
+    return (
+      <Box
+        sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}
+      >
+        <MDTypography variant="h6" color={darkMode ? "white" : "textPrimary"}>
+          Loading...
+        </MDTypography>
+      </Box>
+    );
+  }
 
-  const handleClose = () => {
-    setOpen(false);
-    resetForm();
-  };
+  // Render access denied
+  if (!hasAccess) {
+    return (
+      <Box
+        sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}
+      >
+        <MDTypography variant="h6" color={darkMode ? "white" : "textPrimary"}>
+          You do not have permission to view this page.
+        </MDTypography>
+      </Box>
+    );
+  }
 
-  const handleSubmit = async () => {
-    setConfirmUpdateOpen(true);
-  };
-
-  const confirmUpdate = async () => {
-    const newEmployee = {
-      employeeId: editingEmployee ? editingEmployee.employeeId : generateEmployeeId(name),
-      name,
-      email,
-      phone,
-      department,
-      designation,
-      joiningDate,
-      exitDate,
-      salary,
-      status,
-      roleId,
-    };
-
-    if (editingEmployee) {
-      await updateDoc(doc(db, "employees", editingEmployee.id), newEmployee);
-      setEmployees(
-        employees.map((emp) => (emp.id === editingEmployee.id ? { ...emp, ...newEmployee } : emp))
-      );
-    } else {
-      const docRef = await addDoc(collection(db, "employees"), newEmployee);
-      setEmployees([...employees, { id: docRef.id, ...newEmployee }]);
-    }
-
-    setConfirmUpdateOpen(false);
-    handleClose();
-  };
-
-  const resetForm = () => {
-    setName("");
-    setEmail("");
-    setPhone("");
-    setDepartment("");
-    setDesignation("");
-    setJoiningDate("");
-    setExitDate("");
-    setSalary("");
-    setStatus("");
-    setRoleId("");
-    setEditingEmployee(null);
-  };
+  // Render fetch error
+  if (fetchError) {
+    return (
+      <Box
+        sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}
+      >
+        <MDTypography variant="h6" color="error">
+          {fetchError}
+        </MDTypography>
+      </Box>
+    );
+  }
 
   return (
     <Box
-      p={3}
       sx={{
-        marginLeft: "250px",
-        marginTop: "30px",
-        width: "calc(100% - 250px)",
+        backgroundColor: darkMode ? "background.default" : "background.paper",
+        minHeight: "100vh",
       }}
     >
-      <Grid item xs={12}>
-        <Card
-          sx={{
-            marginTop: "20px",
-            borderRadius: "12px",
-            overflow: "visible",
-          }}
-        >
-          <MDBox
-            mx={2}
-            mt={-3}
-            py={3}
-            px={2}
-            variant="gradient"
-            bgColor="info"
-            borderRadius="lg"
-            coloredShadow="info"
-          >
-            <MDTypography variant="h6" color="white">
-              Employee Management
-            </MDTypography>
-          </MDBox>
-          <MDBox pt={3} pb={2} px={2}>
-            <Button variant="gradient" color="info" onClick={handleClickOpen} sx={{ mb: 2 }}>
-              Add Employee
-            </Button>
-            <DataTable
-              table={tableData}
-              isSorted={false}
-              entriesPerPage={false}
-              showTotalEntries={false}
-              noEndBorder
-            />
-          </MDBox>
-        </Card>
-      </Grid>
+      <DashboardNavbar
+        absolute
+        light={!darkMode}
+        isMini={false}
+        sx={{
+          backgroundColor: darkMode ? "rgba(33, 33, 33, 0.9)" : "rgba(255, 255, 255, 0.9)",
+          backdropFilter: "blur(10px)",
+          zIndex: 1100,
+          padding: "0 16px",
+          minHeight: "60px",
+          top: "8px",
+          left: { xs: "0", md: miniSidenav ? "80px" : "260px" },
+          width: { xs: "100%", md: miniSidenav ? "calc(100% - 80px)" : "calc(100% - 260px)" },
+        }}
+      />
+      <Box
+        p={3}
+        sx={{
+          marginLeft: { xs: "0", md: miniSidenav ? "80px" : "260px" },
+          marginTop: { xs: "140px", md: "100px" },
+          backgroundColor: darkMode ? "background.default" : "background.paper",
+          minHeight: "calc(100vh - 80px)",
+          paddingTop: { xs: "32px", md: "24px" },
+          zIndex: 1000,
+        }}
+      >
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card>
+              <MDBox
+                mx={2}
+                mt={-3}
+                py={3}
+                px={2}
+                variant="gradient"
+                bgColor={darkMode ? "dark" : "info"}
+                borderRadius="lg"
+                coloredShadow={darkMode ? "dark" : "info"}
+              >
+                <MDTypography variant="h6" color={darkMode ? "white" : "black"}>
+                  Employee Management
+                </MDTypography>
+              </MDBox>
+              <MDBox pt={2} pb={2} px={2}>
+                {!isReadOnly && (
+                  <Box sx={{ display: "flex", gap: 2, mb: 1, alignItems: "center" }}>
+                    <Button
+                      variant="gradient"
+                      color={darkMode ? "dark" : "info"}
+                      onClick={handleClickOpen}
+                      startIcon={<AddIcon />}
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: "medium",
+                        boxShadow: 3,
+                        "&:hover": {
+                          boxShadow: 6,
+                          backgroundColor: darkMode ? "grey.700" : "info.dark",
+                        },
+                      }}
+                    >
+                      Add Employee
+                    </Button>
+                    <FormControl sx={{ minWidth: 150 }}>
+                      <InputLabel id="excel-options-label">Excel Options</InputLabel>
+                      <Select
+                        labelId="excel-options-label"
+                        value={excelOption}
+                        onChange={handleExcelOptionChange}
+                        label="Excel Options"
+                        sx={{
+                          height: "36px",
+                          "& .MuiSelect-select": {
+                            padding: "8px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="" disabled>
+                          Select an option
+                        </MenuItem>
+                        <MenuItem value="upload">Upload Excel</MenuItem>
+                        <MenuItem value="download">Download Excel</MenuItem>
+                        <MenuItem value="downloadDummy">Download Dummy Excel</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      hidden
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleFileUpload}
+                    />
+                  </Box>
+                )}
+                <DataTable
+                  table={tableData}
+                  isSorted={false}
+                  entriesPerPage={false}
+                  showTotalEntries={false}
+                  noEndBorder
+                  canSearch
+                  onSearch={(query) => setSearchQuery(query.trim().toLowerCase())}
+                />
+                <MDBox display="flex" justifyContent="center" mt={2}>
+                  <Button
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    sx={{ mx: 1 }}
+                  >
+                    {"<"}
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                    <Button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      sx={{
+                        mx: 0.5,
+                        backgroundColor: currentPage === page ? "info.main" : "transparent",
+                        color: currentPage === page ? "white" : "text.primary",
+                        borderRadius: "50%",
+                        minWidth: "30px",
+                        height: "30px",
+                      }}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  <Button
+                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    sx={{ mx: 1 }}
+                  >
+                    {">"}
+                  </Button>
+                </MDBox>
+              </MDBox>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
 
-      {/* Employee Details Dialog */}
       <Dialog
         open={viewDetailsOpen}
         onClose={() => setViewDetailsOpen(false)}
         maxWidth="md"
         fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            backgroundColor: darkMode ? "background.default" : "background.paper",
+          },
+        }}
       >
-        <DialogTitle>Employee Details</DialogTitle>
+        <DialogTitle sx={{ color: darkMode ? "white" : "black" }}>Employee Details</DialogTitle>
         <DialogContent>
           {selectedEmployee && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Employee ID</Typography>
-                <Typography>{selectedEmployee.employeeId}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Employee ID
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.employeeId}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Name</Typography>
-                <Typography>{selectedEmployee.name}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Name
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.name}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Email</Typography>
-                <Typography>{selectedEmployee.email}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Email
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.email}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Phone</Typography>
-                <Typography>{selectedEmployee.phone}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Phone
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.phone}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Department</Typography>
-                <Typography>{selectedEmployee.department}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Department
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.department}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Designation</Typography>
-                <Typography>{selectedEmployee.designation}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Designation
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.designation}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Joining Date</Typography>
-                <Typography>{selectedEmployee.joiningDate}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Joining Date
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.joiningDate}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Exit Date</Typography>
-                <Typography>{selectedEmployee.exitDate || "N/A"}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Exit Date
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.exitDate || "N/A"}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Salary</Typography>
-                <Typography>{selectedEmployee.salary}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Salary
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.salary}
+                </MDTypography>
+              </Grid>
+              lac{" "}
+              <Grid item xs={6}>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Status
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.status}
+                </MDTypography>
               </Grid>
               <Grid item xs={6}>
-                <Typography variant="subtitle2">Status</Typography>
-                <Typography>{selectedEmployee.status}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2">Role ID</Typography>
-                <Typography>{selectedEmployee.roleId}</Typography>
+                <MDTypography variant="subtitle2" color={darkMode ? "white" : "black"}>
+                  Roles
+                </MDTypography>
+                <MDTypography color={darkMode ? "white" : "black"}>
+                  {selectedEmployee.roles ? selectedEmployee.roles.join(", ") : "N/A"}
+                </MDTypography>
               </Grid>
             </Grid>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewDetailsOpen(false)}>Close</Button>
-          <Button onClick={handleEdit} color="primary">
-            Edit
-          </Button>
+          {!isReadOnly && (
+            <>
+              <Button onClick={() => handleEdit()} color="primary">
+                Edit
+              </Button>
+              <Button onClick={() => handleEditPermissions(selectedEmployee)} color="warning">
+                Edit Permissions
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 
-      {/* Employee Form Dialog */}
-      <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>{editingEmployee ? "Edit Employee" : "Add Employee"}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+      {!isReadOnly && (
+        <Dialog
+          open={editPermissionsOpen}
+          onClose={() => setEditPermissionsOpen(false)}
+          sx={{
+            "& .MuiDialog-paper": {
+              backgroundColor: darkMode ? "background.default" : "background.paper",
+            },
+          }}
+        >
+          <DialogTitle sx={{ color: darkMode ? "white" : "black" }}>
+            Edit Permissions for {selectedEmployee?.name}
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel id="roles-label" sx={{ color: darkMode ? "white" : "black" }}>
+                    Roles
+                  </InputLabel>
+                  <Select
+                    labelId="roles-label"
+                    id="roles"
+                    multiple
+                    value={selectedRoles}
+                    onChange={(e) => setSelectedRoles(e.target.value)}
+                    renderValue={(selected) => selected.join(", ")}
+                    sx={{ input: { color: darkMode ? "white" : "black" } }}
+                    inputProps={{ style: { color: darkMode ? "white" : "black" } }}
+                  >
+                    {roles.map((role) => (
+                      <MenuItem key={role} value={role}>
+                        <Checkbox checked={selectedRoles.includes(role)} />
+                        <ListItemText primary={role} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                select
-                fullWidth
-                label="Department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-              >
-                {departments.map((dept) => (
-                  <MenuItem key={dept} value={dept}>
-                    {dept}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Designation"
-                value={designation}
-                onChange={(e) => setDesignation(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Joining Date"
-                value={joiningDate}
-                onChange={(e) => setJoiningDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Exit Date"
-                value={exitDate}
-                onChange={(e) => setExitDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Salary"
-                value={salary}
-                onChange={(e) => setSalary(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                select
-                fullWidth
-                label="Status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                {statuses.map((s) => (
-                  <MenuItem key={s} value={s}>
-                    {s}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                select
-                fullWidth
-                label="Role ID"
-                value={roleId}
-                onChange={(e) => setRoleId(e.target.value)}
-              >
-                {roles.map((role) => (
-                  <MenuItem key={role.id} value={role.roleId}>
-                    {role.roleId}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditPermissionsOpen(false)}>Cancel</Button>
+            <Button onClick={handleSavePermissions} color="primary">
+              Save
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
-      <Dialog open={confirmUpdateOpen} onClose={() => setConfirmUpdateOpen(false)}>
-        <DialogTitle>Confirm Save Changes?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setConfirmUpdateOpen(false)}>Cancel</Button>
-          <Button onClick={confirmUpdate} color="primary">
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Box
+        sx={{
+          marginLeft: { xs: "0", md: miniSidenav ? "80px" : "260px" },
+          backgroundColor: darkMode ? "background.default" : "background.paper",
+          zIndex: 1100,
+        }}
+      >
+        <Footer />
+      </Box>
+
+      {!isReadOnly && (
+        <Dialog
+          open={open}
+          onClose={handleClose}
+          maxWidth="md"
+          fullWidth
+          sx={{
+            "& .MuiDialog-paper": {
+              backgroundColor: "#f3f3f3",
+              borderRadius: "15px",
+              boxShadow: "0 0 20px rgba(0, 0, 0, 0.2)",
+              width: "500px",
+              margin: "auto",
+            },
+          }}
+        >
+          <DialogTitle sx={{ ...titleStyle }}>
+            {editingEmployee ? "Edit Employee" : "Add Employee"}
+          </DialogTitle>
+          <DialogContent sx={{ py: 2, padding: "10px 20px" }}>
+            <fieldset style={formStyle}>
+              <form action="#" method="get">
+                <label style={labelStyle} htmlFor="name">
+                  Name*
+                </label>
+                <input
+                  style={{ ...inputStyle, borderColor: errors.name ? "red" : "#ddd" }}
+                  type="text"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter Name"
+                  required
+                />
+                {errors.name && (
+                  <span style={{ color: "red", fontSize: "12px" }}>{errors.name}</span>
+                )}
+
+                <label style={labelStyle} htmlFor="email">
+                  Email*
+                </label>
+                <input
+                  style={{ ...inputStyle, borderColor: errors.email ? "red" : "#ddd" }}
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter Email"
+                  required
+                />
+                {errors.email && (
+                  <span style={{ color: "red", fontSize: "12px" }}>{errors.email}</span>
+                )}
+
+                <label style={labelStyle} htmlFor="phone">
+                  Phone
+                </label>
+                <input
+                  style={inputStyle}
+                  type="tel"
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Enter Phone"
+                />
+
+                <label style={labelStyle} htmlFor="department">
+                  Department*
+                </label>
+                <select
+                  style={{ ...selectStyle, borderColor: errors.department ? "red" : "#ddd" }}
+                  id="department"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Select Department
+                  </option>
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+                {errors.department && (
+                  <span style={{ color: "red", fontSize: "12px" }}>{errors.department}</span>
+                )}
+
+                <label style={labelStyle} htmlFor="designation">
+                  Designation*
+                </label>
+                <input
+                  style={{ ...inputStyle, borderColor: errors.designation ? "red" : "#ddd" }}
+                  type="text"
+                  id="designation"
+                  value={designation}
+                  onChange={(e) => setDesignation(e.target.value)}
+                  placeholder="Enter Designation"
+                  required
+                />
+                {errors.designation && (
+                  <span style={{ color: "red", fontSize: "12px" }}>{errors.designation}</span>
+                )}
+
+                <label style={labelStyle} htmlFor="joiningDate">
+                  Joining Date*
+                </label>
+                <input
+                  style={{ ...inputStyle, borderColor: errors.joiningDate ? "red" : "#ddd" }}
+                  type="date"
+                  id="joiningDate"
+                  value={joiningDate}
+                  onChange={(e) => setJoiningDate(e.target.value)}
+                  required
+                />
+                {errors.joiningDate && (
+                  <span style={{ color: "red", fontSize: "12px" }}>{errors.joiningDate}</span>
+                )}
+
+                <label style={labelStyle} htmlFor="exitDate">
+                  Exit Date
+                </label>
+                <input
+                  style={{ ...inputStyle, borderColor: errors.exitDate ? "red" : "#ddd" }}
+                  type="date"
+                  id="exitDate"
+                  value={exitDate}
+                  onChange={(e) => setExitDate(e.target.value)}
+                />
+                {errors.exitDate && (
+                  <span style={{ color: "red", fontSize: "12px" }}>{errors.exitDate}</span>
+                )}
+
+                <label style={labelStyle} htmlFor="salary">
+                  Salary
+                </label>
+                <input
+                  style={{ ...inputStyle, borderColor: errors.salary ? "red" : "#ddd" }}
+                  type="number"
+                  id="salary"
+                  value={salary}
+                  onChange={(e) => setSalary(e.target.value)}
+                  placeholder="Enter Salary"
+                />
+                {errors.salary && (
+                  <span style={{ color: "red", fontSize: "12px" }}>{errors.salary}</span>
+                )}
+
+                <label style={labelStyle} htmlFor="status">
+                  Status*
+                </label>
+                <select
+                  style={{ ...selectStyle, borderColor: errors.status ? "red" : "#ddd" }}
+                  id="status"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Select Status
+                  </option>
+                  {statuses.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                {errors.status && (
+                  <span style={{ color: "red", fontSize: "12px" }}>{errors.status}</span>
+                )}
+
+                <label style={labelStyle}>Roles</label>
+                <Box
+                  sx={{
+                    maxHeight: "150px",
+                    overflowY: "auto",
+                    border: "1px solid #ddd",
+                    borderRadius: "5px",
+                    padding: "10px",
+                  }}
+                >
+                  {roles.map((role) => (
+                    <Box key={role} sx={{ display: "flex", alignItems: "center" }}>
+                      <Checkbox
+                        checked={selectedRoles.includes(role)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setSelectedRoles((prev) =>
+                            checked ? [...prev, role] : prev.filter((r) => r !== role)
+                          );
+                        }}
+                      />
+                      <ListItemText primary={role} />
+                    </Box>
+                  ))}
+                </Box>
+              </form>
+            </fieldset>
+          </DialogContent>
+          <DialogActions sx={{ padding: "16px 24px", justifyContent: "center" }}>
+            <button style={buttonStyle} onClick={handleClose}>
+              Cancel
+            </button>
+            <button style={buttonStyle} onClick={handleSubmit}>
+              Save
+            </button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {!isReadOnly && (
+        <Dialog
+          open={confirmUpdateOpen}
+          onClose={() => setConfirmUpdateOpen(false)}
+          sx={{
+            "& .MuiDialog-paper": {
+              backgroundColor: darkMode ? "background.default" : "background.paper",
+              borderRadius: "12px",
+            },
+          }}
+        >
+          <DialogTitle sx={{ color: darkMode ? "white" : "black" }}>
+            Ready to update employee details?
+          </DialogTitle>
+          <DialogActions>
+            <Button
+              onClick={() => setConfirmUpdateOpen(false)}
+              sx={{
+                color: darkMode ? "#ffffff" : "#000000",
+                textTransform: "none",
+                fontWeight: "bold",
+                fontSize: "16px",
+                padding: "8px 20px",
+                borderRadius: "8px",
+                border: darkMode ? "1px solid #ffffff" : "1px solid #000000",
+                "&:hover": {
+                  backgroundColor: darkMode ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)",
+                  color: darkMode ? "#ffffff" : "#000000",
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmUpdate}
+              sx={{
+                backgroundColor: darkMode ? "#4fc3f7" : "#1976d2",
+                color: "#ffffff",
+                textTransform: "none",
+                fontWeight: "bold",
+                fontSize: "16px",
+                padding: "8px 20px",
+                borderRadius: "8px",
+                "&:hover": {
+                  backgroundColor: darkMode ? "#29b6f6" : "#1565c0",
+                },
+              }}
+            >
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };
